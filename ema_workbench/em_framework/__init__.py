@@ -1,5 +1,3 @@
-from __future__ import (absolute_import, unicode_literals, division,
-                        print_function)
 import warnings
 __all__ = ["ema_parallel", "parameters"
            "model", "outcomes", "samplers",
@@ -13,25 +11,16 @@ __all__ = ["ema_parallel", "parameters"
            "perform_experiments", 'optimize', "IpyparallelEvaluator",
            "MultiprocessingEvaluator", "SequentialEvaluator", "DistributedEvaluator",
            'ReplicatorModel', "EpsilonProgress", "HyperVolume",
-           "Convergence", "ArchiveLogger"]
+           "Convergence", "ArchiveLogger", "ArrayOutcome"]
 
-from .outcomes import ScalarOutcome, TimeSeriesOutcome, Constraint
+from .outcomes import (ScalarOutcome, TimeSeriesOutcome, Constraint,
+                       ArrayOutcome)
 from .model import Model, FileModel, ReplicatorModel
 
-
-from .parameters import (
-    RealParameter,
-    IntegerParameter,
-    CategoricalParameter,
-    BooleanParameter,
-    Scenario,
-    Policy,
-    Constant,
-    Experiment,
-    create_parameters,
-    parameters_to_csv,
-    Category,
-    experiment_generator)
+from .parameters import (RealParameter, IntegerParameter, CategoricalParameter,
+                         BooleanParameter, Scenario, Policy, Constant,
+                         Experiment, create_parameters, parameters_to_csv,
+                         Category, experiment_generator)
 from .samplers import (MonteCarloSampler, FullFactorialSampler, LHSSampler,
                        PartialFactorialSampler, sample_levers,
                        sample_uncertainties)

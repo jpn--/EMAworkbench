@@ -1,11 +1,23 @@
 '''
-This module specifies a generic ModelStructureInterface for controlling
+This module specifies a generic Model class for controlling
 NetLogo models.
+
+ScalarOutcomes and ArrayOutcomes are assumed to be reporters on the 
+NetLogo model that return a scalar and list respectively. These will be 
+queried after having run the model for the specified ticks
+
+TimeSeries outcomes write data to a .txt file for each tick. This can be used
+in combination with an agent-set or reporter. However, it introduces
+substantial overhead. 
+
+
 '''
 from __future__ import (absolute_import, print_function, division,
                         unicode_literals)
 from ema_workbench.em_framework.model import Replicator, SingleReplication
 from ema_workbench.util.ema_logging import get_module_logger
+from ema_workbench.em_framework.outcomes import TimeSeriesOutcome
+from pyNetLogo.core import NetLogoException
 
 try:
     import jpype
@@ -44,6 +56,18 @@ class BaseNetLogoModel(FileModel):
     name : str
 
     '''
+    
+    @property
+    def ts_output_variables(self):
+        if self._ts_output_variables is None:
+            timeseries = [o for o in self.outcomes if
+                          isinstance(o, TimeSeriesOutcome)]
+            
+            self._ts_output_variables = [var for o in timeseries for var in
+                                         o.variable_name]
+
+        return self._ts_output_variables
+    
     command_format = "set {0} {1}"
 
     def __init__(self, name, wd=None, model_file=None, netlogo_home=None,
@@ -88,6 +112,7 @@ class BaseNetLogoModel(FileModel):
         self.netlogo_version = netlogo_version
         self.jvm_home = jvm_home
         self.gui = gui
+        self._ts_output_variables = None
 
     @method_logger(__name__)
     def model_init(self, policy):
@@ -150,7 +175,7 @@ class BaseNetLogoModel(FileModel):
         # routine, but can do them at the end
         commands = []
         fns = {}
-        for variable in self.output_variables:
+        for variable in self.ts_output_variables:
             fn = r'{0}{3}{1}{2}'.format(self.working_directory,
                                         variable,
                                         ".txt",
@@ -162,25 +187,19 @@ class BaseNetLogoModel(FileModel):
             if self.netlogo.report('is-agentset? {}'.format(variable)):
                 # if name is name of an agentset, we
                 # assume that we should count the total number of agents
-                nc = r'{2} {0} {3} {4} {1}'.format(fn,
-                                                   variable,
-                                                   "file-open",
-                                                   'file-write',
-                                                   'count')
+                nc = r'file-open {0} file-write count {1}'.format(fn,
+                                                                  variable,
+                                                                  )
             else:
                 # it is not an agentset, so assume that it is
                 # a reporter / global variable
-
-                nc = r'{2} {0} {3} {1}'.format(fn,
-                                               variable,
-                                               "file-open",
-                                               'file-write')
+                nc = r'file-open {0} file-write {1}'.format(fn,
+                                                            variable)
             commands.append(nc)
 
         c_start = "repeat {} [".format(self.run_length)
         c_close = "go ]"
         c_middle = " ".join(commands)
-#         c_end = " ".join(end_commands)
         command = " ".join((c_start, c_middle, c_close))
         _logger.debug(command)
         self.netlogo.command(command)
@@ -190,10 +209,21 @@ class BaseNetLogoModel(FileModel):
         self.netlogo.command(c_middle)
 
         # we also need to save the non time series outcomes
-#         self.netlogo.command(c_end)
-
         self.netlogo.command("file-close-all")
-        return self._handle_outcomes(fns)
+        
+        results = self._handle_outcomes(fns)
+        
+        # handle non time series outcomes
+        non_ts_vars = set(self.output_variables) - set(self.ts_output_variables)
+        for variable in set(non_ts_vars):
+            try:
+                data = self.netlogo.report(variable)
+            except NetLogoException:
+                _logger.exception("{} not a reporter".format(variable))
+            else:
+                results[variable] = data
+        
+        return results
 
     def retrieve_output(self):
         """
@@ -232,19 +262,6 @@ class BaseNetLogoModel(FileModel):
                 result = [float(entry) for entry in result]
                 results[key] = np.asarray(result)
             os.remove(value)
-
-#         temp_output = {}
-#
-#         outputs = [entry for entry in self.outcomes]
-#         outputs +=  [entry for entry in self.constraints]
-#
-#         for outcome in outputs:
-#             varname = outcome.variable_name
-#             if len(varname)==1:
-#                 varname = varname[0]
-#                 temp_output[outcome.name] = results[varname]
-#             else:
-#                 temp_output[outcome.name] = [results[var] for var in varname]
         return results
 
 
