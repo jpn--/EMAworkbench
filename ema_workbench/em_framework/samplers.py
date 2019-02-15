@@ -168,6 +168,49 @@ class LHSSampler(AbstractSampler):
 
         return v
 
+class UniformLHSSampler(AbstractSampler):
+    """
+    Generates a Latin Hypercube sample with uniform distribution.
+
+    The frozen_rv for each parameter is not used to generate samples,
+    just to define the lower and upper bounds.
+    """
+
+    def __init__(self):
+        super(UniformLHSSampler, self).__init__()
+
+    def sample(self, distribution, size):
+        '''
+        generate a Latin Hypercube Sample.
+
+        Parameters
+        ----------
+        distribution : scipy distribution
+                       A distribution that defines lower and upper bounds.
+        size : int
+               the number of samples to generate
+
+        Returns
+        -------
+        dict
+            with the paramertainty.name as key, and the sample as value
+
+        '''
+
+        # return self._lhs(distribution, size)
+
+        perc = np.linspace(0, (size - 1) / size, size)
+        np.random.shuffle(perc)
+        smp = stats.uniform(perc, 1. / size).rvs()
+        if (hasattr(distribution, 'dist') and
+                isinstance(distribution.dist, stats.rv_discrete)):
+            lower_bound = distribution.ppf(5e-324)  # smallest possible non-zero
+        else:
+            lower_bound = distribution.ppf(0)
+        upper_bound = distribution.ppf(1)
+        v = (smp * (upper_bound-lower_bound)) + lower_bound
+
+        return v
 
 
 class MonteCarloSampler(AbstractSampler):
