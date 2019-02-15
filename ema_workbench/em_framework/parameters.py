@@ -35,8 +35,6 @@ class Constant(NamedObject):
 
     '''
 
-    dist = 'constant'
-
     def __init__(self, name, value):
         super(Constant, self).__init__(name)
         self.value = value
@@ -84,11 +82,7 @@ class Parameter(Variable):
     __metaclass__ = abc.ABCMeta
 
     INTEGER = 'integer'
-    BERNOULLI = 'bernoulli'
-
     UNIFORM = 'uniform'
-    TRIANGLE = 'triangle'
-    PERT = 'pert'
 
     def __init__(self, name, lower_bound, upper_bound, resolution=None,
                  default=None, variable_name=None, pff=False):
@@ -140,7 +134,6 @@ class Parameter(Variable):
 
         return start
 
-from typing import Iterable
 
 class RealParameter(Parameter):
     ''' real valued model input parameter
@@ -164,8 +157,7 @@ class RealParameter(Parameter):
     '''
 
     def __init__(self, name, lower_bound, upper_bound, resolution=None,
-                 default=None, variable_name=None, pff=False,
-                 dist=None, dist_params=None):
+                 default=None, variable_name=None, pff=False, dist=None):
         super(
             RealParameter,
             self).__init__(
@@ -177,43 +169,36 @@ class RealParameter(Parameter):
             variable_name=variable_name,
             pff=pff)
 
-        valid_dist = {Parameter.UNIFORM, Parameter.TRIANGLE, Parameter.PERT, None}
+        if dist is None:
+            from scipy.stats import uniform
+            dist = uniform(lower_bound, upper_bound-lower_bound)
+        self.rv_gen = dist
 
-        if isinstance(dist, str):
-            dist = dist.lower()
-        if dist not in valid_dist:
-            raise ValueError(f"dist '{dist}' not in {valid_dist}")
 
-        self.dist = dist if dist is not None else Parameter.UNIFORM
+    def __repr__(self, *args, **kwargs):
+        start = '{}(\'{}\', {}, {}'.format(self.__class__.__name__,
+                                           self.name,
+                                           self.lower_bound, self.upper_bound)
 
-        if isinstance(dist_params, numbers.Number):
-            self.dist_params = [dist_params]
-        elif isinstance(dist_params, Iterable):
-            self.dist_params = list(dist_params)
-        elif dist_params is None:
-            self.dist_params = []
+        if self.resolution:
+            start += ', resolution={}'.format(self.resolution)
+        if self.default:
+            start += ', default={}'.format(self.default)
+        if self.variable_name != [self.name]:
+            start += ', variable_name={}'.format(self.variable_name)
+        if self.pff:
+            start += ', pff={}'.format(self.pff)
+        try:
+            dist_name = self.rv_gen.dist.name
+        except:
+            pass
         else:
-            raise ValueError("cannot interpret dist_params")
+            if dist_name != 'uniform':
+                start += ', dist={}'.format(dist_name)
 
-    @property
-    def params(self):
-        if self.dist == Parameter.UNIFORM:
-            return (self.lower_bound,
-                    self.upper_bound - self.lower_bound)
+        start += ')'
 
-        if self.dist == Parameter.TRIANGLE:
-            return (self.dist_params[0],
-                    self.lower_bound,
-                    self.upper_bound - self.lower_bound)
-
-        if self.dist == Parameter.PERT:
-            center = self.dist_params[0] if len(self.dist_params)>0 else 0.5
-            peak = self.upper_bound * center + self.lower_bound * (1-center)
-            return (peak,
-                    self.dist_params[1] if len(self.dist_params) > 1 else 4.0,
-                    self.lower_bound,
-                    self.upper_bound - self.lower_bound)
-        raise ValueError(f"invalid dist {self.dist}")
+        return start
 
 
 class IntegerParameter(Parameter):
@@ -240,8 +225,7 @@ class IntegerParameter(Parameter):
     '''
 
     def __init__(self, name, lower_bound, upper_bound, resolution=None,
-                 default=None, variable_name=None, pff=False,
-                 dist=None, dist_params=None):
+                 default=None, variable_name=None, pff=False, dist=None):
         super(
             IntegerParameter,
             self).__init__(
@@ -264,37 +248,11 @@ class IntegerParameter(Parameter):
                 raise ValueError(('all entries in resolution should be '
                                   'integers'))
 
-        valid_dist = {Parameter.INTEGER, Parameter.BERNOULLI, None}
-
-        if isinstance(dist, str):
-            dist = dist.lower()
-        if dist not in valid_dist:
-            raise ValueError(f"dist '{dist}' not in {valid_dist}")
-
-        self.dist = dist if dist is not None else Parameter.INTEGER
-
-        if self.dist == Parameter.BERNOULLI:
-            assert lower_bound == 0
-            assert upper_bound == 1
-
-        if isinstance(dist_params, numbers.Number):
-            self.dist_params = [dist_params]
-        elif isinstance(dist_params, Iterable):
-            self.dist_params = list(dist_params)
-        elif dist_params is None:
-            self.dist_params = []
-        else:
-            raise ValueError("cannot interpret dist_params")
-
-    @property
-    def params(self):
-        # scipy.stats.randit uses closed upper bound, hence the +1
-        if self.dist == Parameter.INTEGER:
-            return (self.lower_bound, self.upper_bound + 1)
-        elif self.dist == Parameter.BERNOULLI:
-            return (self.dist_params[0] if len(self.dist_params)>0 else 0.5, self.lower_bound, self.upper_bound + 1)
-        else:
-            raise ValueError(f"unknown dist {self.dist}")
+        if dist is None:
+            from scipy.stats import randint
+            # scipy.stats.randit uses closed upper bound, hence the +1
+            dist = randint(lower_bound, upper_bound+1)
+        self.rv_gen = dist
 
 
 class CategoricalParameter(IntegerParameter):
@@ -320,7 +278,7 @@ class CategoricalParameter(IntegerParameter):
         self._categories.extend(values)
 
     def __init__(self, name, categories, default=None, variable_name=None,
-                 pff=False, multivalue=False):
+                 pff=False, multivalue=False, dist=None):
         lower_bound = 0
         upper_bound = len(categories) - 1
 
@@ -336,7 +294,8 @@ class CategoricalParameter(IntegerParameter):
             resolution=None,
             default=default,
             variable_name=variable_name,
-            pff=pff)
+            pff=pff,
+            dist=dist)
         cats = [create_category(cat) for cat in categories]
 
         self._categories = NamedObjectMap(Category)
@@ -441,11 +400,10 @@ class BooleanParameter(IntegerParameter):
     '''
 
     def __init__(self, name, default=None, variable_name=None,
-                 pff=False, dist=None, dist_params=None):
+                 pff=False, dist=None):
         super(BooleanParameter, self).__init__(
             name, 0, 1, resolution=None, default=default,
-            variable_name=variable_name, pff=pff,
-            dist=dist, dist_params=dist_params)
+            variable_name=variable_name, pff=pff, dist=dist)
 
         self.categories = [False, True]
         self.resolution = [0, 1]
@@ -474,7 +432,7 @@ class Policy(NamedDict):
     # a unique experiment ID
     id_counter = Counter(1)
 
-    def __init__(self, name=Counter(), **kwargs):
+    def __init__(self, name, **kwargs):
         super(Policy, self).__init__(name, **kwargs)
         self.id = Policy.id_counter()
 
@@ -517,8 +475,6 @@ class Case(NamedObject):
         self.model_name = model_name
         self.scenario = scenario
 
-    def __repr__(self):
-        return f"Case(id={self.experiment_id}, {repr(self.policy)}, {repr(self.scenario)})"
 
 class Experiment(NamedDict):
     '''helper class that combines scenario, policy, any constants, and
@@ -545,7 +501,7 @@ class Experiment(NamedDict):
             name, **combine(scenario, policy, constants))
 
 
-def experiment_generator(scenarios, model_structures, policies, zip_over=None):
+def experiment_generator(scenarios, model_structures, policies):
     '''
 
     generator function which yields experiments
@@ -555,70 +511,16 @@ def experiment_generator(scenarios, model_structures, policies, zip_over=None):
     designs : iterable of dicts
     model_structures : list
     policies : list
-    zip_over : Collection[str], optional
-        A collection that contains exactly two or three members of the set
-        {'scenarios', 'policies', 'models'}.  If a set is given, the length
-        of all other arguments that are indicated in this set must be the
-        same, and the experiment generator will create experiments based on
-        a `zip` through the values in these collections, instead of creating
-        experiments across all possible combinations of the values.
 
     Notes
     -----
-    When called with zip_over as None, this generator is essentially
-    three nested loops: for each model structure,
+    this generator is essentially three nested loops: for each model structure,
     for each policy, for each scenario, return the experiment. This means
     that designs should not be a generator because this will be exhausted after
-    the running the first policy on the first model.  If zip_over contains
-    two items, then those two will be paired up, but there will still be
-    two nested loops.
+    the running the first policy on the first model.
 
     '''
-    if zip_over is None:
-        zip_over = set()
-    else:
-        zip_over = set(zip_over)
-
-    if not zip_over.issubset({'scenarios', 'policies', 'models'}):
-        raise ValueError("zip_over must be subset of {'scenarios', 'policies', 'models'} or None")
-    if len(zip_over) == 1:
-        raise ValueError("zip_over cannot be one item")
-
-    if zip_over == {'scenarios', 'policies', 'models'}:
-        assert len(model_structures) == len(policies)
-        assert len(model_structures) == len(scenarios)
-        jobs = (
-            (m_, p_, s_)
-            for m_, p_, s_ in zip(
-                model_structures, policies, scenarios
-            )
-        )
-    elif zip_over == {'scenarios', 'policies'}:
-        assert len(scenarios) == len(policies)
-        jobs = (
-            (m_, p_, s_)
-            for m_, (p_, s_) in itertools.product(
-                model_structures, zip(policies, scenarios)
-            )
-        )
-    elif zip_over == {'scenarios', 'models'}:
-        assert len(model_structures) == len(scenarios)
-        jobs = (
-            (m_, p_, s_)
-            for p_, (m_, s_) in itertools.product(
-                policies, zip(model_structures, scenarios)
-            )
-        )
-    elif zip_over == {'policies', 'models'}:
-        assert len(model_structures) == len(policies)
-        jobs = (
-            (m_, p_, s_)
-            for s_, (m_, p_) in itertools.product(
-                scenarios, zip(model_structures, policies)
-            )
-        )
-    else:
-        jobs = itertools.product(model_structures, policies, scenarios)
+    jobs = itertools.product(model_structures, policies, scenarios)
 
     for i, job in enumerate(jobs):
         msi, policy, scenario = job

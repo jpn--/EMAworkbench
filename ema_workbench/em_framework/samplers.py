@@ -25,7 +25,7 @@ import scipy.stats as stats
 
 from . import util
 from .parameters import (IntegerParameter, Policy, Scenario,
-                         BooleanParameter, CategoricalParameter, Category)
+                         BooleanParameter, CategoricalParameter)
 
 # Created on 16 aug. 2011
 #
@@ -41,112 +41,6 @@ __all__ = ['AbstractSampler',
            'determine_parameters']
 
 
-
-def _pert(low, peak, high, gamma=4.0):
-    """
-    A PERT random variate
-
-    Parameters
-    ----------
-    low : scalar
-        Lower bound of the distribution support
-    peak : scalar
-        The location of the distribution's peak (low <= peak <= high)
-    high : scalar
-        Upper bound of the distribution support
-
-    Optional
-    --------
-    gamma : scalar
-        Controls the uncertainty of the distribution around the peak. Smaller
-        values make the distribution flatter and more uncertain around the
-        peak while larger values make it focused and less uncertain around
-        the peak. (Default: 4)
-    """
-    a, b, c = [float(x) for x in [low, peak, high]]
-    assert a <= b <= c, ('PERT "peak" must be greater than "low" and '
-                         'less than "high"')
-    assert gamma >= 0, 'PERT "g" must be non-negative'
-    mu = (a + gamma * b + c) / (gamma + 2)
-    if mu == b:
-        a1 = a2 = 3.0
-    else:
-        a1 = ((mu - a) * (2 * b - a - c)) / ((b - mu) * (c - a))
-        a2 = a1 * (c - mu) / (mu - a)
-
-    return _beta(a1, a2, a, c)
-
-
-def _pert2(peak, gamma, low, width):
-    """
-    A PERT random variate with more standardized parameter order,
-
-    This sets the parameters such that the last two are lower bound
-    and width, so that it can degenerate cleanly to a uniform.
-
-    Parameters
-    ----------
-    peak : scalar
-        The location of the distribution's peak (low <= peak <= high)
-    gamma : scalar
-        Controls the uncertainty of the distribution around the peak. Smaller
-        values make the distribution flatter and more uncertain around the
-        peak while larger values make it focused and less uncertain around
-        the peak.
-    low : scalar
-        Lower bound of the distribution support
-    width : scalar
-        Distance from lower bound to upper bound of the distribution support
-
-    """
-    return _pert(low, peak, low+width, gamma)
-
-
-def _beta(alpha, beta, low=0, high=1):
-    """
-    A Beta random variate
-
-    Parameters
-    ----------
-    alpha : scalar
-        The first shape parameter
-    beta : scalar
-        The second shape parameter
-
-    Optional
-    --------
-    low : scalar
-        Lower bound of the distribution support (default=0)
-    high : scalar
-        Upper bound of the distribution support (default=1)
-    """
-
-    assert alpha > 0 and beta > 0, (
-        'Beta "alpha" and "beta" parameters must be greater than zero')
-    assert low < high, 'Beta "low" must be less than "high"'
-
-    return stats.beta(alpha, beta, loc=low, scale=high - low)
-
-
-def _bernoulli(rate, low=0, high=1):
-    """
-    A PERT random variate with more standardized parameter order,
-
-    This sets the parameters such that the last two are lower bound
-    and width, so that it can degenerate cleanly to a uniform.
-
-    Parameters
-    ----------
-    rate : scalar
-        The single parameter of the Bernoulli distribution.
-    low : scalar
-        Lower bound of the distribution support, assumed 0
-    width : scalar
-        Distance from lower bound to upper bound of the distribution support,
-        assumed 1
-    """
-    return stats.bernoulli(rate)
-
 class AbstractSampler(object):
     '''
     Abstract base class from which different samplers can be derived.
@@ -158,36 +52,12 @@ class AbstractSampler(object):
     '''
     __metaaclass__ = abc.ABCMeta
 
-    # types of distributions known by the sampler.
-    # by default it knows the `uniform continuous <http://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.uniform.html>`_
-    # distribution for sampling floats, and the `uniform discrete <http://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.randint.html#scipy.stats.randint>`_
-    # distribution for sampling integers.
-    distributions = {
-        "uniform": stats.uniform,
-        "integer": stats.randint,
-        "triangular": stats.triang,
-        "triangle": stats.triang,
-        "triang": stats.triang,
-        "pert": _pert2,
-        "bernoulli": _bernoulli,
-    }
-
-    # which uniform-type distribution to degrade to for each original distribution
-    uniform_distributions = {
-        "uniform": stats.uniform,
-        "integer": stats.randint,
-        "triangular": stats.uniform,
-        "triangle": stats.uniform,
-        "triang": stats.uniform,
-        "pert": stats.uniform,
-        "bernoulli": stats.randint,
-    }
 
     def __init__(self):
         super(AbstractSampler, self).__init__()
 
     @abc.abstractmethod
-    def sample(self, distribution, params, size):
+    def sample(self, distribution, size):
         '''
         method for sampling a number of samples from a particular distribution.
         The various samplers differ with respect to their implementation of
@@ -195,10 +65,8 @@ class AbstractSampler(object):
 
         Parameters
         ----------
-        distribution : {'uniform', 'integer'}
+        distribution : frozen_rv
                        the distribution to sample from
-        params : tuple
-                 the parameters specifying the distribution
         size : int
                the number of samples to generate
 
@@ -231,7 +99,7 @@ class AbstractSampler(object):
             dict with the paramertainty.name as key, and the sample as value
 
         '''
-        return {param.name: self.sample(param.dist, param.params, size) for
+        return {param.name: self.sample(param.rv_gen, size) for
                 param in parameters}
 
     def generate_designs(self, parameters, nr_samples):
@@ -273,7 +141,7 @@ class LHSSampler(AbstractSampler):
     def __init__(self):
         super(LHSSampler, self).__init__()
 
-    def sample(self, distribution, params, size):
+    def sample(self, distribution, size):
         '''
         generate a Latin Hypercube Sample.
 
@@ -281,8 +149,6 @@ class LHSSampler(AbstractSampler):
         ----------
         distribution : scipy distribution
                        the distribution to sample from
-        params : tuple
-                 the parameters specifying the distribution
         size : int
                the number of samples to generate
 
@@ -293,78 +159,15 @@ class LHSSampler(AbstractSampler):
 
         '''
 
-        return self._lhs(self.distributions[distribution], params, size)
+        # return self._lhs(distribution, size)
 
-    def _lhs(self, dist, parms, siz):
-        '''
-        Latin Hypercube sampling of any distribution.
-
-        Parameters
-        ----------
-        dist : random variable distribution from `scipy.stats <http://docs.scipy.org/doc/scipy/reference/stats.html>`_
-        parms : tuple
-                tuple of parameters as required for dist.
-        siz : int
-              number of samples
-
-        '''
-        perc = np.linspace(0, (siz-1)/siz, siz)
+        perc = np.linspace(0, (size - 1) / size, size)
         np.random.shuffle(perc)
-        smp = stats.uniform(perc, 1. / siz).rvs()
-        v = dist(*parms).ppf(smp)
+        smp = stats.uniform(perc, 1. / size).rvs()
+        v = distribution.ppf(smp)
 
         return v
 
-
-class UniformLHSSampler(AbstractSampler):
-    """
-    generates a LHS for the parameters, ignoring defined distribution shapes
-    """
-
-    def __init__(self):
-        super(UniformLHSSampler, self).__init__()
-
-    def sample(self, distribution, params, size):
-        '''
-        generate a Latin Hypercube Sample.
-
-        Parameters
-        ----------
-        distribution : scipy distribution
-                       the distribution to sample from
-        params : tuple
-                 the parameters specifying the distribution
-        size : int
-               the number of samples to generate
-
-        Returns
-        -------
-        dict
-            with the paramertainty.name as key, and the sample as value
-
-        '''
-
-        return self._lhs(self.uniform_distributions[distribution], params[-2:], size)
-
-    def _lhs(self, dist, parms, siz):
-        '''
-        Latin Hypercube sampling of any distribution.
-
-        Parameters
-        ----------
-        dist : random variable distribution from `scipy.stats <http://docs.scipy.org/doc/scipy/reference/stats.html>`_
-        parms : tuple
-                tuple of parameters as required for dist.
-        siz : int
-              number of samples
-
-        '''
-        perc = np.linspace(0, (siz-1)/siz, siz)
-        np.random.shuffle(perc)
-        smp = stats.uniform(perc, 1. / siz).rvs()
-        v = dist(*parms).ppf(smp)
-
-        return v
 
 
 class MonteCarloSampler(AbstractSampler):
@@ -376,16 +179,14 @@ class MonteCarloSampler(AbstractSampler):
     def __init__(self):
         super(MonteCarloSampler, self).__init__()
 
-    def sample(self, distribution, params, size):
+    def sample(self, distribution, size):
         '''
         generate a Monte Carlo Sample.
 
         Parameters
         ----------
-        distribution : scipy distribution
+        distribution : scipy frozen distribution
                        the distribution to sample from
-        params : 2-tuple of floats
-                 the parameters specifying the distribution
         size : int
                the number of samples to generate
 
@@ -396,7 +197,7 @@ class MonteCarloSampler(AbstractSampler):
 
         '''
 
-        return self.distributions[distribution](*params).rvs(size)
+        return distribution.rvs(size)
 
 
 class FullFactorialSampler(AbstractSampler):
@@ -678,35 +479,6 @@ def sample_uncertainties(models, n_samples, union=True, sampler=LHSSampler()):
 
     return samples
 
-def sample_parameters(models, n_samples, union=True, sampler=LHSSampler()):
-    '''generate scenarios by sampling over the uncertainties
-
-    Parameters
-    ----------
-    models : a collection of AbstractModel instances
-    n_samples : int
-    union : bool, optional
-            in case of multiple models, sample over the union of
-            uncertainties, or over the intersection of the uncertainties
-    sampler : Sampler instance, optional
-
-    Returns
-    -------
-    generator
-        yielding Scenario instances
-    collection
-        the collection of parameters over which to sample
-    n_samples
-        the number of scenarios (!= n_samples in case off FF sampling)
-
-
-    '''
-    parms = determine_parameters(models, 'uncertainties', union=union) + determine_parameters(models, 'levers', union=union)
-    samples = sampler.generate_designs(parms, n_samples)
-    samples.kind = Scenario
-
-    return samples
-
 
 def from_experiments(models, experiments):
     '''generate scenarios from an existing experiments DataFrame
@@ -764,9 +536,6 @@ class DefaultDesigns(object):
         
         return ("ema_workbench.DefaultDesigns, "
                 "{} designs on {} parameters").format(self.n, len(self.params))
-
-    def __len__(self):
-        return self.n
 
 
 class PartialFactorialDesigns(object):
@@ -841,17 +610,14 @@ def design_generator(designs, params, kind):
 
         design_dict = {}
         for param, value in zip(params, design):
+            if isinstance(param, IntegerParameter):
+                value = int(value)
+            if isinstance(param, BooleanParameter):
+                value = bool(value)
             if isinstance(param, CategoricalParameter):
                 # categorical parameter is an integer parameter, so
                 # conversion to int is already done
-                if isinstance(value, Category):
-                    value = value.value
-                if value not in param.categories:
-                    value = param.cat_for_index(int(value)).value
-            elif isinstance(param, IntegerParameter):
-                value = int(value)
-            elif isinstance(param, BooleanParameter):
-                value = bool(int(value))
+                value = param.cat_for_index(value).value
 
             design_dict[param.name] = value
 
