@@ -25,7 +25,8 @@ import scipy.stats as stats
 
 from . import util
 from .parameters import (IntegerParameter, Policy, Scenario,
-                         BooleanParameter, CategoricalParameter)
+                         BooleanParameter, CategoricalParameter,
+                         Category)
 
 # Created on 16 aug. 2011
 #
