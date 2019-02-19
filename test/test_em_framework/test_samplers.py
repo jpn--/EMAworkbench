@@ -8,13 +8,14 @@ from __future__ import (absolute_import, unicode_literals, division,
 
 import unittest.mock as mock
 import unittest
+from scipy import stats
 
 from ema_workbench.em_framework.samplers import (LHSSampler, MonteCarloSampler,
                                 FullFactorialSampler, PartialFactorialSampler,
                                 determine_parameters, UniformLHSSampler)
 from ema_workbench.em_framework.parameters import (RealParameter, 
-                                                      IntegerParameter, 
-                                                      CategoricalParameter,
+                                                   IntegerParameter,
+                                                   CategoricalParameter,
                                                    BooleanParameter)
 from ema_workbench.em_framework.parameters import Scenario
 from ema_workbench.em_framework import Model
@@ -46,14 +47,15 @@ class SamplerTestCase(unittest.TestCase):
     def test_lhs_sampler_with_distribution(self):
         sampler = LHSSampler()
 
-        uncertainties = [RealParameter("1", 0, 10),
-                         IntegerParameter("2", 0, 10),
-                         CategoricalParameter('3', ['a', 'b', 'c']),
-                         RealParameter("4", 0, 10, dist=RealParameter.TRIANGLE, dist_params=[0.95]),
-                         RealParameter("5", 0, 10, dist=RealParameter.PERT, dist_params=[0.05, 4.0]),
-                         BooleanParameter("6"),
-                         BooleanParameter("7", dist=BooleanParameter.BERNOULLI, dist_params=[0.1, ]),
-                         ]
+        uncertainties = [
+            RealParameter("1", 0, 10),
+            IntegerParameter("2", 0, 10),
+            CategoricalParameter('3', ['a', 'b', 'c']),
+            RealParameter("4", dist=stats.triang(0.95, 0, 10)),
+            RealParameter("5", dist=stats.beta(1.2, 4.8, scale=10)),
+            BooleanParameter("6"),
+            BooleanParameter("7", dist=stats.bernoulli(0.1)),
+        ]
 
         designs = sampler.generate_designs(uncertainties, 100)
         designs.kind = Scenario
@@ -69,29 +71,32 @@ class SamplerTestCase(unittest.TestCase):
         self.assertAlmostEqual(checksum7, 10, delta=5)
 
         actual_nr_designs = 0
+
         for design in designs:
             actual_nr_designs += 1
-
-        self.assertIn('1', design, msg)
-        self.assertIn('2', design, msg)
-        self.assertIn('3', design, msg)
-        self.assertIn('4', design, msg)
-        self.assertIn('5', design, msg)
-        self.assertIn('6', design, msg)
-        self.assertIn('7', design, msg)
+            self.assertIn('1', design, msg)
+            self.assertIn('2', design, msg)
+            self.assertIn('3', design, msg)
+            self.assertIn('4', design, msg)
+            self.assertIn('5', design, msg)
+            self.assertIn('6', design, msg)
+            self.assertIn('7', design, msg)
         self.assertEqual(designs.n, actual_nr_designs, msg)
+
+
 
     def test_ulhs_sampler(self):
         sampler = UniformLHSSampler()
 
-        uncertainties = [RealParameter("1", 0, 10),
-                         IntegerParameter("2", 0, 10),
-                         CategoricalParameter('3', ['a', 'b', 'c']),
-                         RealParameter("4", 0, 10, dist=RealParameter.TRIANGLE, dist_params=[0.95]),
-                         RealParameter("5", 0, 10, dist=RealParameter.PERT, dist_params=[0.05, 4.0]),
-                         BooleanParameter("6"),
-                         BooleanParameter("7", dist=BooleanParameter.BERNOULLI, dist_params=[0.1, ]),
-                         ]
+        uncertainties = [
+            RealParameter("1", 0, 10),
+            IntegerParameter("2", 0, 10),
+            CategoricalParameter('3', ['a', 'b', 'c']),
+            RealParameter("4", dist=stats.triang(0.95, 0, 10)),
+            RealParameter("5", dist=stats.beta(1.2, 4.8, scale=10)),
+            BooleanParameter("6"),
+            BooleanParameter("7", dist=stats.bernoulli(0.1)),
+        ]
 
         designs = sampler.generate_designs(uncertainties, 100)
         designs.kind = Scenario
@@ -107,16 +112,17 @@ class SamplerTestCase(unittest.TestCase):
         self.assertAlmostEqual(checksum7, 50, delta=5)
 
         actual_nr_designs = 0
+
         for design in designs:
             actual_nr_designs += 1
 
-        self.assertIn('1', design, msg)
-        self.assertIn('2', design, msg)
-        self.assertIn('3', design, msg)
-        self.assertIn('4', design, msg)
-        self.assertIn('5', design, msg)
-        self.assertIn('6', design, msg)
-        self.assertIn('7', design, msg)
+            self.assertIn('1', design, msg)
+            self.assertIn('2', design, msg)
+            self.assertIn('3', design, msg)
+            self.assertIn('4', design, msg)
+            self.assertIn('5', design, msg)
+            self.assertIn('6', design, msg)
+            self.assertIn('7', design, msg)
         self.assertEqual(designs.n, actual_nr_designs, msg)
 
     def test_mc_sampler(self):
