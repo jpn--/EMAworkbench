@@ -348,17 +348,6 @@ class IntegerParameter(Parameter):
         comparison.append(self.rv_gen.dist.name == other.rv_gen.dist.name)
         return all(comparison)
 
-    def __eq__(self, other):
-        comparison = [all(hasattr(self, key) == hasattr(other, key) and
-                          getattr(self, key) == getattr(other, key) for key
-                          in self.__dict__.keys() if key != 'rv_gen')]
-        comparison.append(self.__class__ == other.__class__)
-        comparison.append(self.rv_gen.args == other.rv_gen.args)
-        comparison.append(self.rv_gen.kwds == other.rv_gen.kwds)
-        comparison.append(self.rv_gen.a == other.rv_gen.a)
-        comparison.append(self.rv_gen.b == other.rv_gen.b)
-        comparison.append(self.rv_gen.dist.name == other.rv_gen.dist.name)
-        return all(comparison)
 
 
 class CategoricalParameter(IntegerParameter):
