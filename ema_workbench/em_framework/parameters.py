@@ -44,10 +44,27 @@ class Constant(NamedObject):
         return '{}(\'{}\', {})'.format(self.__class__.__name__,
                                        self.name, self.value)
 
+    def __eq__(self, other):
+        if not isinstance(other, Constant):
+            return False
+        if self.value != other.value:
+            return False
+        return super(Constant, self).__eq__(other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 class Category(Constant):
     def __init__(self, name, value):
         super(Category, self).__init__(name, value)
+
+    def __eq__(self, other):
+        if not isinstance(other, Category):
+            return False
+        return super(Constant, self).__eq__(other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 
 def create_category(cat):
