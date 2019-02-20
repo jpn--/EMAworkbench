@@ -583,6 +583,8 @@ class DefaultDesigns(object):
         return ("ema_workbench.DefaultDesigns, "
                 "{} designs on {} parameters").format(self.n, len(self.params))
 
+    def __len__(self):
+        return self.n
 
 class PartialFactorialDesigns(object):
 
