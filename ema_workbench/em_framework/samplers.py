@@ -208,10 +208,12 @@ class UniformLHSSampler(AbstractSampler):
         if (hasattr(distribution, 'dist') and
                 isinstance(distribution.dist, stats.rv_discrete)):
             lower_bound = distribution.ppf(5e-324)  # smallest possible non-zero
+            upper_bound = distribution.ppf(1)
+            v = stats.randint(lower_bound, upper_bound+1).ppf(smp)
         else:
             lower_bound = distribution.ppf(0)
-        upper_bound = distribution.ppf(1)
-        v = (smp * (upper_bound-lower_bound)) + lower_bound
+            upper_bound = distribution.ppf(1)
+            v = (smp * (upper_bound-lower_bound)) + lower_bound
 
         return v
 
