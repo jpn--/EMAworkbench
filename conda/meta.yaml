@@ -1,6 +1,6 @@
 package:
   name: ema_workbench
-  version: "2.0.CS1"
+  version: "2.0.CS2"
 
 source:
   path: ../
