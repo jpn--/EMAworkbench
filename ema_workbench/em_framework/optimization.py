@@ -235,16 +235,20 @@ def to_robust_problem(
 def to_platypus_types(decision_variables):
     '''helper function for mapping from workbench parameter types to
     platypus parameter types'''
-    # TODO:: should categorical not be platypus.Subset, with size == 1?
-    _type_mapping = {RealParameter: platypus.Real,
-                     IntegerParameter: platypus.Integer,
-                     CategoricalParameter: platypus.Subset,
-                     BooleanParameter: platypus.Subset,
-                     }
 
     types = []
     for dv in decision_variables:
-        klass = _type_mapping[type(dv)]
+
+        if isinstance(dv, BooleanParameter):
+            klass = platypus.Subset
+        elif isinstance(dv, CategoricalParameter):
+            klass = platypus.Subset
+        elif isinstance(dv, IntegerParameter):
+            klass = platypus.Integer
+        elif isinstance(dv, RealParameter):
+            klass = platypus.Real
+        else:
+            raise TypeError("dv is type {}".format(type(dv)))
 
         if not isinstance(dv, (CategoricalParameter, BooleanParameter)):
             decision_variable = klass(dv.lower_bound, dv.upper_bound)
