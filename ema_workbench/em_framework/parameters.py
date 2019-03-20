@@ -80,6 +80,16 @@ class Category(Constant):
     def __init__(self, name, value):
         super(Category, self).__init__(name, value)
 
+    def __eq__(self, other):
+        if not isinstance(other, Category):
+            return False
+        return super(Constant, self).__eq__(other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash((self.name, self.value))
 
 def create_category(cat):
     if isinstance(cat, Category):
