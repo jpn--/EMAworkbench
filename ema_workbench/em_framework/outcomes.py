@@ -19,7 +19,8 @@ from ..util import get_module_logger
 #
 # .. codeauthor:: jhkwakkel <j.h.kwakkel (at) tudelft (dot) nl>
 
-__all__ = ['Outcome', 'ScalarOutcome', 'ArrayOutcome', 'TimeSeriesOutcome']
+__all__ = ['Outcome', 'ScalarOutcome', 'ArrayOutcome', 'TimeSeriesOutcome',
+           'Constraint']
 _logger = get_module_logger(__name__)
 
 
@@ -49,6 +50,9 @@ class AbstractOutcome(Variable):
     ----------
     name : str
     kind : int
+    variable_name : str
+    function : callable
+    shape : tuple
 
     '''
     __metaclass__ = abc.ABCMeta
@@ -151,7 +155,11 @@ class ScalarOutcome(AbstractOutcome):
     ----------
     name : str
     kind : int
-
+    variable_name : str
+    function : callable
+    shape : tuple
+    expected_range : tuple
+    
     '''
     
     @property
@@ -175,9 +183,8 @@ class ScalarOutcome(AbstractOutcome):
 
     def process(self, values):
         values = super(ScalarOutcome, self).process(values)
-        if values is not None and not isinstance(values, numbers.Number):
-            raise EMAError(f"outcome {self.name} should be a scalar, "
-                           f"but it is {type(values)}")
+        if not isinstance(values, numbers.Number):
+            raise EMAError("outcome {} should be a scalar".format(self.name))
         return values
     
 
@@ -201,6 +208,16 @@ class ArrayOutcome(AbstractOutcome):
                      expected min and max value for outcome,
                      used by HyperVolume convergence metric
     shape : {tuple, None}, optional
+    
+    Attributes
+    ----------
+    name : str
+    kind : int
+    variable_name : str
+    function : callable
+    shape : tuple
+    expected_range : tuple
+    
 
     '''
     def __init__(self, name, variable_name=None,
@@ -249,7 +266,10 @@ class TimeSeriesOutcome(ArrayOutcome):
     ----------
     name : str
     kind : int
+    variable_name : str
     function : callable
+    shape : tuple
+    expected_range : tuple
 
     '''
 
@@ -273,22 +293,22 @@ class Constraint(ScalarOutcome):
     Parameters
     ----------
     name : str
-    parameter_names : str or collection of str, optional
-        The name of one or more named model parameters (i.e. uncertainties
-        or levers) which are used to calculate whether this constraint is
-        violated, and if so by how much.
-    outcome_names : str or collection of str, optional
-        The name of one or more named model outcomes which are used to
-        calculate whether this constraint is violated, and if so by how much.
+    parameter_names : str or collection of str
+    outcome_names : str or collection of str
     function : callable
-        This function is called to evaluate the constraint. The arguments to
-        the function call will be the values of `parameter_names`, in the
-        order given, followed by the values of `outcome_names`, also in the
-        order given. All these values are passed to this function as positional
-        arguments, not keyword arguments.
-        The function should return the (positive) distance from the feasibility threshold,
-        given the model parameters and outcomes provided. The distance should be
-        0 if the constraint is met, or if the constraint is not binding.
+
+    Attributes
+    ----------
+    name : str
+    parameter_names : str, list of str
+                      name(s) of the uncertain parameter(s) and/or
+                      lever parameter(s) to which the constraint applies 
+    outcome_names : str, list of str
+                    name(s) of the outcome(s) to which the constraint applies
+    function : callable
+               The function should return the distance from the feasibility
+               threshold, given the model outputs with a variable name. The
+               distance should be 0 if the constraint is met.
 
     '''
 
@@ -318,16 +338,6 @@ class Constraint(ScalarOutcome):
         value = super(Constraint, self).process(values)
         assert value >= 0
         return value
-
-    @staticmethod
-    def must_be_less_than(value):
-        """Convenience method for upper-bound constraints"""
-        return lambda x:max(0, x-value)
-
-    @staticmethod
-    def must_be_greater_than(value):
-        """Convenience method for lower-bound constraints"""
-        return lambda x:max(0, value-x)
 
 
 def create_outcomes(outcomes, **kwargs):

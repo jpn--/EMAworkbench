@@ -16,5 +16,4 @@ seaborn
 matplotlib
 pyzmq
 pysd
-dask
-distributed
+statsmodels

@@ -159,6 +159,7 @@ class BaseNetLogoModel(FileModel):
 
 
         """
+        # TODO:: point for speedup. Send all set commands in 1 go
         for key, value in experiment.items():
             try:
                 self.netlogo.command(self.command_format.format(key, value))
@@ -250,7 +251,11 @@ class BaseNetLogoModel(FileModel):
         directories.
 
         '''
-        self.netlogo.kill_workspace()
+        try:
+            self.netlogo.kill_workspace()
+        except AttributeError:
+            pass
+        
         jpype.shutdownJVM()
 
     def _handle_outcomes(self, fns):
