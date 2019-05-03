@@ -12,6 +12,8 @@ import shutil
 import string
 import threading
 import warnings
+import operator
+import functools
 from ema_workbench.em_framework.samplers import AbstractSampler
 
 warnings.simplefilter("once", ImportWarning)
@@ -24,11 +26,12 @@ except (ImportError, ModuleNotFoundError):
         'ipyparallel not installed - IpyparalleEvaluator not available')
 
 from ..util import EMAError, get_module_logger, ema_logging
-from .util import NamedObjectMap, determine_objects
+from .util import NamedObjectMap, determine_objects, representation
 from .salib_samplers import (SobolSampler, MorrisSampler, FASTSampler)
 from .samplers import (MonteCarloSampler, FullFactorialSampler, LHSSampler,
                        PartialFactorialSampler, UniformLHSSampler, 
-                       sample_levers, sample_uncertainties)
+                       sample_levers, sample_uncertainties,
+                       DefaultDesigns, determine_parameters)
 from .parameters import (experiment_generator, Scenario, Policy)
 from .outcomes import ScalarOutcome, AbstractOutcome
 from .optimization import (evaluate_robust, evaluate, EpsNSGAII,
