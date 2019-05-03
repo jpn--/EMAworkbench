@@ -18,6 +18,7 @@ except ImportError:
 
 try:
     from . import excel
+    import win32com
 except ImportError:
     warnings.warn("excel connector not available", ImportWarning)
 

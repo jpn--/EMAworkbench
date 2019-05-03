@@ -231,7 +231,10 @@ def _in_box(x, boxlim):
     # TODO:: how to speed this up
     for column, values in x.select_dtypes(exclude=np.number).iteritems():
         entries = boxlim.loc[0, column]
-        not_present = set(values.cat.categories.values) - entries
+        if isinstance(values, pd.Series) and values.dtype == 'bool':
+            not_present = {False, True} - entries
+        else:
+            not_present = set(values.cat.categories.values) - entries
 
         if not_present:
             # what other options do we have here....
@@ -750,8 +753,15 @@ class OutputFormatterMixin(object):
 
         raise NotImplementedError
 
-    def boxes_to_dataframe(self):
-        '''convert boxes to pandas dataframe'''
+    def boxes_to_dataframe(self, include_stats=False):
+        '''convert boxes to pandas dataframe
+
+        Parameters
+        ----------
+        include_stats : bool, default False
+            If True, the box statistics will also be retrieved and returned in
+            the same DataFrame as the boxes.
+        '''
 
         boxes = self.boxes
 
@@ -779,6 +789,12 @@ class OutputFormatterMixin(object):
                 values = box.loc[:, unc]
                 values = values.rename({0: 'min', 1: 'max'})
                 df_boxes.loc[unc][index[i]] = values
+
+        if include_stats:
+            df_stats = self.stats_to_dataframe()
+            df_stats.columns = pd.MultiIndex.from_product([['Box Statistics'], df_stats.columns, ])
+            return pd.concat([df_stats, df_boxes.stack().T], axis=1, sort=False)
+
         return df_boxes
 
     def stats_to_dataframe(self):

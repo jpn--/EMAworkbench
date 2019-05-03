@@ -33,6 +33,7 @@ class NoDefaultSheetError(EMAError):
     pass
 
 
+
 class BaseExcelModel(FileModel):
     '''
 
@@ -68,12 +69,13 @@ class BaseExcelModel(FileModel):
                identfier for that input or output in the Excel workbook, in
                'sheetName!A1' or 'sheetName!NamedCell' notation (the sheet name
                is optional if the cell or range exists in the default sheet).
+    model_def : str, optional
+                the name of the model definition yaml file, see `load_yaml`.
 
     '''
     com_warning_msg = "com error: no cell(s) named %s found"
 
-    def __init__(self, name, wd=None, model_file=None, default_sheet=None,
-                 pointers=None):
+    def __init__(self, name, wd=None, model_file=None, default_sheet=None, pointers=None, model_def=None):
         super(BaseExcelModel, self).__init__(name, wd=wd,
                                              model_file=model_file)
         #: Reference to the Excel application. This attribute is `None` until
@@ -93,6 +95,9 @@ class BaseExcelModel(FileModel):
         if pointers is None:
             pointers = {}
         self.pointers = pointers
+
+        if model_def is not None:
+            self.load_yaml(model_def)
 
     @property
     def workbook(self):
@@ -127,7 +132,7 @@ class BaseExcelModel(FileModel):
 
         # check for self.xl.Workbooks==0 allows us to see if wb was previously closed
         # and needs to be reopened.
-        if not self.wb or self.xl.Workbooks.Count == 0:
+        if not self.wb or self.xl.Workbooks.Count==0:
             _logger.debug("trying to open workbook")
             wb = os.path.join(self.working_directory, self.workbook)
             self.wb = self.xl.Workbooks.Open(wb)
@@ -161,8 +166,7 @@ class BaseExcelModel(FileModel):
         for key, value in experiment.items():
             self.set_wb_value(key, value)
 
-        # trigger a calulate event, in the case that the workbook's automatic
-        # recalculation was suspended.
+        # trigger a calulate event, in the case that the workbook's automatic recalculation was suspended.
         self.xl.Calculate()
 
         # get results
@@ -226,12 +230,8 @@ class BaseExcelModel(FileModel):
         try:
             sheet = self.wb.Sheets(sheetname)
         except Exception:
-            _logger.warning(
-                "com error: sheet '{}' not found".format(sheetname))
-            _logger.warning(
-                "known sheets: {}".format(
-                    ", ".join(
-                        self.get_wb_sheetnames())))
+            _logger.warning("com error: sheet '{}' not found".format(sheetname))
+            _logger.warning("known sheets: {}".format(", ".join(self.get_wb_sheetnames())))
             self.cleanup()
             raise
 
@@ -264,19 +264,18 @@ class BaseExcelModel(FileModel):
         try:
             sheet = self.get_sheet(this_sheet)
         except NoDefaultSheetError:
-            raise EMAError(
-                "no default sheet while trying to read from '{}'".format(name))
+            raise EMAError(f"no default sheet while trying to read from '{name}'")
 
         try:
             value = sheet.Range(this_range).Value
         except com_error:
             _logger.warning(
-                "com error: no cell(s) named {} found on sheet {}".format(
-                    this_range, this_sheet),
+                "com error: no cell(s) named {} found on sheet {}".format(this_range, this_sheet),
             )
             value = None
 
         return value
+
 
     def set_wb_value(self, name, value):
         '''inject a value into a cell of the excel workbook
@@ -305,15 +304,13 @@ class BaseExcelModel(FileModel):
         try:
             sheet = self.get_sheet(this_sheet)
         except NoDefaultSheetError:
-            raise EMAError(
-                "no default sheet while trying to write to '{}'".format(name))
+            raise EMAError(f"no default sheet while trying to write to '{name}'")
 
         try:
             sheet.Range(this_range).Value = value
         except com_error:
             _logger.warning(
-                "com error: no cell(s) named {} found on sheet {}".format(
-                    this_range, this_sheet),
+                "com error: no cell(s) named {} found on sheet {}".format(this_range, this_sheet),
             )
 
     def get_wb_sheetnames(self):
@@ -326,6 +323,78 @@ class BaseExcelModel(FileModel):
         else:
             return ['error: wb not available']
 
+    def load_yaml(self, yaml_file):
+        '''
+        Load an excel model interface definition from a yaml file.
+
+        Parameters
+        ----------
+        yaml_file : str
+            Filename of the yaml file to load. This file will define the uncertainties, levers, and outcomes.
+        '''
+        import yaml
+        import numbers
+        with open(yaml_file) as yf:
+            definition = yaml.load(yf)
+
+
+        from ..em_framework.parameters import IntegerParameter, BooleanParameter, RealParameter, CategoricalParameter
+        from ..em_framework.outcomes import ScalarOutcome, Constraint
+
+        self.levers = []
+        self.uncertainties = []
+
+        for grouping in ('Levers', 'Uncertainties'):
+
+            _temp = []
+
+            for k, v in definition.get(grouping, {}).items():
+                t = v.get('Type', 'INFER')
+                min_ = v.get('Minimum', 0)
+                max_ = v.get('Maximum')
+
+                if t == 'INFER':
+                    if 'Values' in v:
+                        t = 'CAT'
+                    elif isinstance(max_, numbers.Integral):
+                        t = 'INT'
+                    elif max_ is not None:
+                        t = 'REAL'
+                    else:
+                        t = 'BOOL'
+
+                if t.upper() in ('INT', 'INTEGER',):
+                    if max_ is None:
+                        raise ValueError(f'IntegerParameter {k} must have an explicit Maximum')
+                    _temp.append(IntegerParameter(k, min_, max_))
+                elif t.upper() in ('REAL', 'FLOAT',):
+                    if max_ is None:
+                        raise ValueError(f'RealParameter {k} must have an explicit Maximum')
+                    _temp.append(RealParameter(k, min_, max_))
+                elif t.upper() in ('BOOL', 'BOOLEAN',):
+                    _temp.append(BooleanParameter(k))
+                elif t.upper() in ('CAT', 'BOOLEAN',):
+                    try:
+                        vals = v['Values']
+                    except:
+                        raise ValueError(f'CategoricalParameter {k} must have explicit Values list')
+                    _temp.append(CategoricalParameter(k, vals))
+
+                if 'Cell' in v:
+                    self.pointers[k] = v['Cell']
+
+            if grouping == 'Levers':
+                self.levers = _temp
+            else:
+                self.uncertainties = _temp
+
+
+        _temp = []
+        for k, v in definition.get('Outcomes', {}).items():
+            _temp.append(ScalarOutcome(k))
+            if 'Cell' in v:
+                self.pointers[k] = v['Cell']
+        self.outcomes = _temp
 
 class ExcelModel(SingleReplication, BaseExcelModel):
     pass

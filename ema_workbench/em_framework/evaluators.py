@@ -40,6 +40,20 @@ from .experiment_runner import ExperimentRunner
 from .ema_multiprocessing import LogQueueReader, initializer, add_tasks
 from .callbacks import DefaultCallback
 
+# =======
+# from .outcomes import ScalarOutcome, AbstractOutcome
+# from .parameters import (experiment_generator, Scenario, Policy)
+# from .samplers import (MonteCarloSampler, FullFactorialSampler, LHSSampler,
+#                        PartialFactorialSampler, sample_levers,
+#                        sample_uncertainties, determine_parameters,
+#                        DefaultDesigns)
+#
+# # TODO:: should become optional import
+# from .salib_samplers import (SobolSampler, MorrisSampler, FASTSampler)
+# from .util import NamedObjectMap, determine_objects, representation
+# from ..util import EMAError, get_module_logger, ema_logging
+# >>>>>>> cs_master
+
 
 # Created on 5 Mar 2017
 #
@@ -107,7 +121,7 @@ class BaseEvaluator(object):
         ''' finalize the evaluator'''
         raise NotImplementedError
 
-    def evaluate_experiments(self, scenarios, policies, callback):
+    def evaluate_experiments(self, scenarios, policies, callback, zip_over=None):
         '''used by ema_workbench'''
         raise NotImplementedError
 
@@ -155,7 +169,8 @@ class BaseEvaluator(object):
                             uncertainty_union=False, lever_union=False,
                             outcome_union=False,
                             uncertainty_sampling=Samplers.LHS,
-                            levers_sampling=Samplers.LHS, callback=None):
+                            levers_sampling=Samplers.LHS, callback=None,
+                            zip_over=None):
         '''convenience method for performing experiments.
 
         is forwarded to :func:perform_experiments, with evaluator and
@@ -171,7 +186,8 @@ class BaseEvaluator(object):
                                    outcome_union=outcome_union,
                                    uncertainty_sampling=uncertainty_sampling,
                                    levers_sampling=levers_sampling,
-                                   callback=callback)
+                                   callback=callback,
+                                   zip_over=zip_over)
 
     def optimize(self, algorithm=EpsNSGAII, nfe=10000, searchover='levers',
                  reference=None, constraints=None, convergence_freq=1000,
@@ -202,6 +218,17 @@ class BaseEvaluator(object):
                                convergence_freq=convergence_freq,
                                logging_freq=logging_freq, **kwargs)
 
+    def robust_evaluate(self, robustness_functions, scenarios, policies,
+                        **kwargs):
+        '''convenience method for robust evaluation.
+
+        is forwarded to :func:robust_evaluate, with evaluator and models
+        arguments added in.
+
+        '''
+        return robust_evaluate(self._msis, robustness_functions, scenarios, policies,
+                               self, **kwargs)
+
 
 class SequentialEvaluator(BaseEvaluator):
     def __init__(self, models, **kwargs):
@@ -213,10 +240,10 @@ class SequentialEvaluator(BaseEvaluator):
     def finalize(self):
         pass
 
-    def evaluate_experiments(self, scenarios, policies, callback):
+    def evaluate_experiments(self, scenarios, policies, callback, zip_over=None):
         _logger.info("performing experiments sequentially")
 
-        ex_gen = experiment_generator(scenarios, self._msis, policies)
+        ex_gen = experiment_generator(scenarios, self._msis, policies, zip_over)
 
         models = NamedObjectMap(AbstractModel)
         models.extend(self._msis)
@@ -302,8 +329,8 @@ class MultiprocessingEvaluator(BaseEvaluator):
         if self.root_dir:
             shutil.rmtree(self.root_dir)
 
-    def evaluate_experiments(self, scenarios, policies, callback):
-        ex_gen = experiment_generator(scenarios, self._msis, policies)
+    def evaluate_experiments(self, scenarios, policies, callback, zip_over=None):
+        ex_gen = experiment_generator(scenarios, self._msis, policies, zip_over)
         add_tasks(self.n_processes, self._pool, ex_gen, callback)
 
 
@@ -341,8 +368,8 @@ class IpyparallelEvaluator(BaseEvaluator):
         self.logwatcher.stop()
         cleanup(self.client)
 
-    def evaluate_experiments(self, scenarios, policies, callback):
-        ex_gen = experiment_generator(scenarios, self._msis, policies)
+    def evaluate_experiments(self, scenarios, policies, callback, zip_over=None):
+        ex_gen = experiment_generator(scenarios, self._msis, policies, zip_over)
 
         lb_view = self.client.load_balanced_view()
         results = lb_view.map(_run_experiment,
@@ -358,7 +385,8 @@ def perform_experiments(models, scenarios=0, policies=0, evaluator=None,
                         outcome_union=False,
                         uncertainty_sampling=Samplers.LHS,
                         levers_sampling=Samplers.LHS, callback=None,
-                        return_callback=False):
+                        return_callback=False,
+                        zip_over=None):
     '''sample uncertainties and levers, and perform the resulting experiments
     on each of the models
 
@@ -376,6 +404,13 @@ def perform_experiments(models, scenarios=0, policies=0, evaluator=None,
     lever_sampling : {LHS, MC, FF, PFF, SOBOL, MORRIS, FAST}, optional TODO:: update doc
     callback  : Callback instance, optional
     return_callback : boolean, optional
+    zip_over : Collection[str], optional
+        A collection that contains exactly two or three members of the set
+        {'scenarios', 'policies', 'models'}.  If it is given, the length
+        of all relevant arguments that are indicated in this set must be the
+        same, and the experiment generator will create experiments based on
+        a `zip` through the values in these collections, instead of creating
+        experiments across all possible combinations of the values.
 
     Returns
     -------
@@ -448,11 +483,51 @@ def perform_experiments(models, scenarios=0, policies=0, evaluator=None,
 
     outcomes = determine_objects(models, 'outcomes', union=outcome_union)
 
-    nr_of_exp = n_models * n_scenarios * n_policies
+    if zip_over:
+        zip_over = set(zip_over)
+        if zip_over == {'policies', 'scenarios'}:
+            if n_scenarios != n_policies:
+                raise EMAError(f'zip_over is policies+scenarios but '
+                               f'n_scenarios({n_scenarios}) != n_policies({n_policies}) ')
+            nr_of_exp = n_models * n_scenarios
+            _logger.info(('performing {} scenarios/policies * {} model(s) = '
+                          '{} experiments').format(n_scenarios,
+                                                   n_models, nr_of_exp))
 
-    _logger.info(('performing {} scenarios * {} policies * {} model(s) = '
-                  '{} experiments').format(n_scenarios, n_policies,
-                                           n_models, nr_of_exp))
+        elif zip_over == {'policies', 'models'}:
+            if n_models != n_policies:
+                raise EMAError(f'zip_over is policies+models but '
+                               f'n_models({n_models}) != n_policies({n_policies}) ')
+            nr_of_exp = n_models * n_scenarios
+            _logger.info(('performing {} scenarios * {} policies/models = '
+                          '{} experiments').format(n_scenarios,
+                                                   n_models, nr_of_exp))
+
+        elif zip_over == {'scenarios', 'models'}:
+            if n_models != n_scenarios:
+                raise EMAError(f'zip_over is scenarios+models but '
+                               f'n_models({n_models}) != n_scenarios({n_scenarios}) ')
+            nr_of_exp = n_models * n_policies
+            _logger.info(('performing {} policies * {} scenarios/models = '
+                          '{} experiments').format(n_policies,
+                                                   n_models, nr_of_exp))
+
+        elif zip_over == {'scenarios', 'models', 'policies'}:
+            if n_models != n_scenarios:
+                raise EMAError(f'zip_over is scenarios+policies+models but '
+                               f'n_models({n_models}) != n_scenarios({n_scenarios}) ')
+            if n_models != n_policies:
+                raise EMAError(f'zip_over is scenarios+policies+models but '
+                               f'n_models({n_models}) != n_policies({n_policies}) ')
+            nr_of_exp = n_models * n_policies * n_scenarios
+            _logger.info(('performing {} scenarios/policies/models = '
+                          '{} experiments').format(n_policies, nr_of_exp))
+
+    else:
+        nr_of_exp = n_models * n_scenarios * n_policies
+        _logger.info(('performing {} scenarios * {} policies * {} model(s) = '
+                      '{} experiments').format(n_scenarios, n_policies,
+                                               n_models, nr_of_exp))
 
     if not callback:
         callback = DefaultCallback(
@@ -470,7 +545,7 @@ def perform_experiments(models, scenarios=0, policies=0, evaluator=None,
     if not evaluator:
         evaluator = SequentialEvaluator(models)
 
-    evaluator.evaluate_experiments(scenarios, policies, callback)
+    evaluator.evaluate_experiments(scenarios, policies, callback, zip_over=zip_over)
 
     if callback.i != nr_of_exp:
         raise EMAError(('some fatal error has occurred while '
@@ -576,7 +651,7 @@ def robust_optimize(model, robustness_functions, scenarios,
     '''
     for rf in robustness_functions:
         assert(isinstance(rf, ScalarOutcome))
-        assert(rf.kind != AbstractOutcome.INFO)
+        # assert(rf.kind != AbstractOutcome.INFO)
         assert(rf.function is not None)
 
     problem = to_robust_problem(model, scenarios, constraints=constraints,
@@ -586,5 +661,135 @@ def robust_optimize(model, robustness_functions, scenarios,
     if not evaluator:
         evaluator = SequentialEvaluator(model)
 
-    return _optimize(problem, evaluator, algorithm, convergence,
+    result = _optimize(problem, evaluator, algorithm, convergence,
                      int(nfe), convergence_freq, logging_freq, **kwargs)
+
+    if isinstance(result, tuple) and len(result)==2:
+        result, result_convergence = result
+    else:
+        result_convergence = None
+
+
+    # Platypus does not process or save output measures that are just for info,
+    # so they must be re-created.
+    any_info_items = False
+    for rf in robustness_functions:
+        if rf.kind == ScalarOutcome.INFO:
+            any_info_items = True
+            break
+
+    if any_info_items:
+        result = robust_evaluate(model, robustness_functions, scenarios, policies=result,
+                        evaluator=evaluator, )
+
+    if result_convergence is None:
+        return result
+    else:
+        return result, result_convergence
+
+
+
+def designed_levers(models, df, union=True,
+                  name=representation):
+    '''generate policies by reading levers from a dataframe
+
+    Parameters
+    ----------
+    models : a collection of AbstractModel instances
+    df : pandas.DataFrame
+         Each row represents a policy in this design. Each lever
+         given in `models` should have a column in this dataframe.
+    union : bool, optional
+            in case of multiple models, sample over the union of
+            levers, or over the intersection of the levers
+    name : callable, optional
+           a callable to generate a name given the sampled values
+          for each lever
+
+    Returns
+    -------
+    generator yielding Policy instances
+
+    '''
+    levers = determine_parameters(models, 'levers', union=union)
+
+    parameters = sorted(levers, key=operator.attrgetter('name'))
+
+    designs = list(df[[p.name for p in parameters]].itertuples(index=False, name=None))
+
+    designs = DefaultDesigns(designs, parameters, len(df))
+    partial_policy = functools.partial(Policy, name=name)
+    designs.kind = partial_policy
+
+    return designs
+
+
+def robust_evaluate(model, robustness_functions, scenarios, policies,
+                    evaluator=None):
+    '''perform one-time evaluation of a model with robustness functions
+
+    Parameters
+    ----------
+    model : model instance
+    robustness_functions : collection of ScalarOutcomes
+    scenarios : int, or collection
+    policies : int, or collection
+    evaluator : Evaluator instance
+    constraints : list
+
+
+    '''
+    import pandas
+
+    for rf in robustness_functions:
+        assert(isinstance(rf, ScalarOutcome))
+        # assert(rf.kind != AbstractOutcome.INFO)
+        assert(rf.function is not None)
+
+
+    if isinstance(policies, pandas.DataFrame):
+        policies_df = policies
+        policies_it = designed_levers(model, policies)
+    else:
+        policies_it = policies
+        policies_df = pandas.DataFrame(policies)
+
+
+    # solve the optimization problem
+    if not evaluator:
+        evaluator = SequentialEvaluator(model)
+
+    from collections import OrderedDict
+    robust_outcomes = OrderedDict()
+
+    with evaluator as e:
+
+        for policy_id,policy in zip(policies_df.index, policies_it):
+
+            experiments, outcomes = e.perform_experiments(
+                scenarios=scenarios,
+                policies=[policy],
+                reporting_interval=1e6,
+            )
+
+            job_outcomes_dict = {}
+            job_outcomes = []
+            for rf in robustness_functions:
+                data = [outcomes[var_name] for var_name in
+                        rf.variable_name]
+                score = rf.function(*data)
+                job_outcomes_dict[rf.name] = score
+                job_outcomes.append(score)
+
+            robust_outcomes[policy_id] = job_outcomes
+
+    robust_outcomes = pandas.DataFrame.from_dict(
+        robust_outcomes,
+        orient='index',
+        columns=[rf.name for rf in robustness_functions],
+    )
+
+    policy_names = [i for i in policies_df.columns if i not in robust_outcomes.columns]
+
+    return pandas.concat([policies_df[policy_names], robust_outcomes], axis=1)
+

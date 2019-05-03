@@ -117,6 +117,9 @@ class Problem(PlatypusProblem):
         self.constraint_names = [c.name for c in constraints]
         self.reference = reference if reference else 0
 
+def directional_robustness_functions(robustness_functions):
+    """Filter inputs to exclude non-directional terms"""
+    return [rf for rf in robustness_functions if rf.kind!=0]
 
 class RobustProblem(Problem):
     '''small extension to Problem object for robust optimization, adds the
@@ -127,7 +130,7 @@ class RobustProblem(Problem):
         super(RobustProblem, self).__init__('robust', parameters,
                                             outcome_names,
                                             constraints)
-        assert len(robustness_functions) == len(outcome_names)
+        assert len(directional_robustness_functions(robustness_functions)) == len(outcome_names)
         self.scenarios = scenarios
         self.robustness_functions = robustness_functions
 
@@ -196,20 +199,30 @@ def to_robust_problem(
     # extract the levers and the outcomes
     decision_variables = determine_parameters(model, 'levers', union=True)
 
-    outcomes = robustness_functions
-    outcomes = [outcome for outcome in outcomes if
-                outcome.kind != AbstractOutcome.INFO]
-    outcome_names = [outcome.name for outcome in outcomes]
+    directional_outcomes = [
+        outcome
+        for outcome in robustness_functions
+        if outcome.kind != AbstractOutcome.INFO
+    ]
+    nondirectional_outcomes = [
+        outcome
+        for outcome in robustness_functions
+        if outcome.kind == AbstractOutcome.INFO
+    ]
+    directional_outcome_names = [
+        outcome.name
+        for outcome in directional_outcomes
+    ]
 
-    if not outcomes:
+    if not directional_outcomes:
         raise EMAError(("no outcomes specified to optimize over, "
                         "all outcomes are of kind=INFO"))
 
-    problem = RobustProblem(decision_variables, outcome_names,
-                            scenarios, robustness_functions, constraints)
+    problem = RobustProblem(decision_variables, directional_outcome_names,
+                            scenarios, directional_outcomes+nondirectional_outcomes, constraints)
 
     problem.types = to_platypus_types(decision_variables)
-    problem.directions = [outcome.kind for outcome in outcomes]
+    problem.directions = [outcome.kind for outcome in directional_outcomes]
     problem.constraints[:] = "==0"
 
     return problem
@@ -218,16 +231,20 @@ def to_robust_problem(
 def to_platypus_types(decision_variables):
     '''helper function for mapping from workbench parameter types to
     platypus parameter types'''
-    # TODO:: should categorical not be platypus.Subset, with size == 1?
-    _type_mapping = {RealParameter: platypus.Real,
-                     IntegerParameter: platypus.Integer,
-                     CategoricalParameter: platypus.Subset,
-                     BooleanParameter: platypus.Subset,
-                     }
 
     types = []
     for dv in decision_variables:
-        klass = _type_mapping[type(dv)]
+
+        if isinstance(dv, BooleanParameter):
+            klass = platypus.Subset
+        elif isinstance(dv, CategoricalParameter):
+            klass = platypus.Subset
+        elif isinstance(dv, IntegerParameter):
+            klass = platypus.Integer
+        elif isinstance(dv, RealParameter):
+            klass = platypus.Real
+        else:
+            raise TypeError("dv is type {}".format(type(dv)))
 
         if not isinstance(dv, (CategoricalParameter, BooleanParameter)):
             decision_variable = klass(dv.lower_bound, dv.upper_bound)
@@ -416,7 +433,6 @@ def evaluate_robust(jobs_collection, experiments, outcomes, problem):
 
     for entry, job in jobs_collection:
         logical = experiments['policy'] == entry.name
-        job_outcomes = {key: value[logical] for key, value in outcomes.items()}
 
         job_outcomes_dict = {}
         job_outcomes = []
@@ -433,11 +449,13 @@ def evaluate_robust(jobs_collection, experiments, outcomes, problem):
                                                 job_outcomes_dict,
                                                 constraints)
 
+        job_outcomes_directional = [j for (j,rf) in zip(job_outcomes, robustness_functions) if rf.kind != 0]
+
         if job_constraints:
-            job.solution.problem.function = lambda _: (job_outcomes,
+            job.solution.problem.function = lambda _: (job_outcomes_directional,
                                                        job_constraints)
         else:
-            job.solution.problem.function = lambda _: job_outcomes
+            job.solution.problem.function = lambda _: job_outcomes_directional
 
         job.solution.evaluate()
 
@@ -563,8 +581,6 @@ class OperatorProbabilities(AbstractConvergenceMetric):
 
 class Convergence(object):
     '''helper class for tracking convergence of optimization'''
-
-    valid_metrics = set(["hypervolume", "epsilon_progress", "archive_logger"])
 
     def __init__(self, metrics, max_nfe, convergence_freq=1000,
                  logging_freq=5):

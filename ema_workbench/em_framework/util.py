@@ -24,6 +24,16 @@ class NamedObject:
     def __init__(self, name):
         self.name = name
 
+    def __eq__(self, other):
+        if not isinstance(other, NamedObject):
+            return False
+        if self.name != other.name:
+            return False
+        return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
 
 class Counter:
     '''helper function for generating counter based names for NamedDicts'''
@@ -130,6 +140,16 @@ class NamedObjectMap:
 
     def keys(self):
         return self._data.keys()
+
+    def __eq__(self, other):
+        if self.type != other.type:
+            return False
+        for (k1,v1),(k2,v2) in zip(self._data.items(), other._data.items()):
+            if k1 != k2:
+                return False
+            if v1 != v2:
+                return False
+        return True
 
 
 class NamedObjectMapDescriptor:
