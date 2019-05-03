@@ -489,42 +489,27 @@ def perform_experiments(models, scenarios=0, policies=0, evaluator=None,
     if zip_over:
         zip_over = set(zip_over)
         if zip_over == {'policies', 'scenarios'}:
-            if n_scenarios != n_policies:
-                raise EMAError(f'zip_over is policies+scenarios but '
-                               f'n_scenarios({n_scenarios}) != n_policies({n_policies}) ')
-            nr_of_exp = n_models * n_scenarios
+            nr_of_exp = n_models * max(n_policies, n_scenarios)
             _logger.info(('performing {} scenarios/policies * {} model(s) = '
-                          '{} experiments').format(n_scenarios,
+                          '{} experiments').format(max(n_policies, n_scenarios),
                                                    n_models, nr_of_exp))
 
         elif zip_over == {'policies', 'models'}:
-            if n_models != n_policies:
-                raise EMAError(f'zip_over is policies+models but '
-                               f'n_models({n_models}) != n_policies({n_policies}) ')
-            nr_of_exp = n_models * n_scenarios
+            nr_of_exp = max(n_models, n_policies) * n_scenarios
             _logger.info(('performing {} scenarios * {} policies/models = '
                           '{} experiments').format(n_scenarios,
-                                                   n_models, nr_of_exp))
+                                                   max(n_models, n_policies), nr_of_exp))
 
         elif zip_over == {'scenarios', 'models'}:
-            if n_models != n_scenarios:
-                raise EMAError(f'zip_over is scenarios+models but '
-                               f'n_models({n_models}) != n_scenarios({n_scenarios}) ')
-            nr_of_exp = n_models * n_policies
+            nr_of_exp = max(n_models, n_scenarios) * n_policies
             _logger.info(('performing {} policies * {} scenarios/models = '
                           '{} experiments').format(n_policies,
-                                                   n_models, nr_of_exp))
+                                                   max(n_models, n_scenarios), nr_of_exp))
 
         elif zip_over == {'scenarios', 'models', 'policies'}:
-            if n_models != n_scenarios:
-                raise EMAError(f'zip_over is scenarios+policies+models but '
-                               f'n_models({n_models}) != n_scenarios({n_scenarios}) ')
-            if n_models != n_policies:
-                raise EMAError(f'zip_over is scenarios+policies+models but '
-                               f'n_models({n_models}) != n_policies({n_policies}) ')
-            nr_of_exp = n_models * n_policies * n_scenarios
+            nr_of_exp = max(n_models, n_policies, n_scenarios)
             _logger.info(('performing {} scenarios/policies/models = '
-                          '{} experiments').format(n_policies, nr_of_exp))
+                          '{} experiments').format(nr_of_exp, nr_of_exp))
 
     else:
         nr_of_exp = n_models * n_scenarios * n_policies
