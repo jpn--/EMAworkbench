@@ -51,10 +51,10 @@ class SamplerTestCase(unittest.TestCase):
             RealParameter("1", 0, 10),
             IntegerParameter("2", 0, 10),
             CategoricalParameter('3', ['a', 'b', 'c']),
-            RealParameter("4", dist=stats.triang(0.95, 0, 10)),
-            RealParameter("5", dist=stats.beta(1.2, 4.8, scale=10)),
+            RealParameter.from_dist("4", dist=stats.triang(0.95, 0, 10)),
+            RealParameter.from_dist("5", dist=stats.beta(1.2, 4.8, scale=10)),
             BooleanParameter("6"),
-            BooleanParameter("7", dist=stats.bernoulli(0.1)),
+            BooleanParameter.from_dist("7", dist=stats.bernoulli(0.1)),
         ]
 
         designs = sampler.generate_designs(uncertainties, 100)
@@ -92,10 +92,10 @@ class SamplerTestCase(unittest.TestCase):
             RealParameter("1", 0, 10),
             IntegerParameter("2", 0, 10),
             CategoricalParameter('3', ['a', 'b', 'c']),
-            RealParameter("4", dist=stats.triang(0.95, 0, 10)),
-            RealParameter("5", dist=stats.beta(1.2, 4.8, scale=10)),
+            RealParameter.from_dist("4", dist=stats.triang(0.95, 0, 10)),
+            RealParameter.from_dist("5", dist=stats.beta(1.2, 4.8, scale=10)),
             BooleanParameter("6"),
-            BooleanParameter("7", dist=stats.bernoulli(0.1)),
+            BooleanParameter.from_dist("7", dist=stats.bernoulli(0.1)),
         ]
 
         designs = sampler.generate_designs(uncertainties, 100)
