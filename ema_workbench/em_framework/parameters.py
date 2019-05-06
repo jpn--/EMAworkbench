@@ -449,6 +449,16 @@ class BooleanParameter(CategoricalParameter):
             name, categories=[True, False], default=default,
             variable_name=variable_name, pff=pff)
 
+    @classmethod
+    def from_dist(cls, name, dist, **kwargs):
+        if not isinstance(dist.dist, sp.stats.rv_discrete):  # @UndefinedVariable
+            raise ValueError("dist should be instance of rv_discrete")
+
+        assert dist.ppf(5e-324) == 0
+        assert dist.ppf(1.0) == 1
+
+        return super(IntegerParameter, cls).from_dist(name, dist, **kwargs)
+
 #     def __repr__(self, *args, **kwargs):
 #         template1 = 'BooleanParameter(\'{}\', default={})'
 #         template2 = 'BooleanParameter(\'{}\', )'
