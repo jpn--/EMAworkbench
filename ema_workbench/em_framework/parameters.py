@@ -454,10 +454,17 @@ class BooleanParameter(CategoricalParameter):
         if not isinstance(dist.dist, sp.stats.rv_discrete):  # @UndefinedVariable
             raise ValueError("dist should be instance of rv_discrete")
 
-        assert dist.ppf(5e-324) == 0
-        assert dist.ppf(1.0) == 1
+        if dist.ppf(5e-324) != 0:
+            raise ValueError("dist should have minimum value of 0")
 
-        return super(IntegerParameter, cls).from_dist(name, dist, **kwargs)
+        if dist.ppf(1.0) != 1:
+            raise ValueError("dist should have maximum value of 1")
+
+        result = super(IntegerParameter, cls).from_dist(name, dist, **kwargs)
+        cats = [create_category(cat) for cat in [False, True]]
+        result._categories = NamedObjectMap(Category)
+        result.categories = cats
+        return result
 
 #     def __repr__(self, *args, **kwargs):
 #         template1 = 'BooleanParameter(\'{}\', default={})'
