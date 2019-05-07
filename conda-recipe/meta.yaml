@@ -1,6 +1,6 @@
 package:
   name: ema_workbench
-  version: "2.0.CS2"
+  version: "2.1.CS1"
 
 source:
   path: ../
@@ -33,6 +33,7 @@ requirements:
     - pydot
     - dask
     - distributed
+    - salib
 
 build:
   noarch: python
