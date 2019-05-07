@@ -14,7 +14,8 @@ import scipy.stats as stats
 
 from . import util
 from .parameters import (IntegerParameter, Policy, Scenario,
-                         BooleanParameter, CategoricalParameter)
+                         BooleanParameter, CategoricalParameter,
+                         Category)
 from ema_workbench.util.ema_exceptions import EMAError
 
 # Created on 16 aug. 2011
@@ -689,14 +690,17 @@ def design_generator(designs, params, kind):
 
         design_dict = {}
         for param, value in zip(params, design):
-            if isinstance(param, IntegerParameter):
-                value = int(value)
-            if isinstance(param, BooleanParameter):
-                value = bool(value)
-            if isinstance(param, CategoricalParameter):
-                # categorical parameter is an integer parameter, so
-                # conversion to int is already done
-                value = param.cat_for_index(value).value
+            if isinstance(value, Category):
+                value = value.value
+            else:
+                if isinstance(param, IntegerParameter):
+                    value = int(value)
+                if isinstance(param, BooleanParameter):
+                    value = bool(value)
+                if isinstance(param, CategoricalParameter):
+                    # categorical parameter is an integer parameter, so
+                    # conversion to int is already done
+                    value = param.cat_for_index(value).value
 
             design_dict[param.name] = value
 
