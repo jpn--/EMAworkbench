@@ -734,6 +734,8 @@ def robust_evaluate(model, robustness_functions, scenarios, policies,
         # assert(rf.kind != AbstractOutcome.INFO)
         assert(rf.function is not None)
 
+    if (isinstance(policies, numbers.Integral)):
+        policies = sample_levers(model, policies)
 
     if isinstance(policies, pandas.DataFrame):
         policies_df = policies
