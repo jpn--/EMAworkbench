@@ -421,13 +421,29 @@ class CategoricalParameter(IntegerParameter):
 
         return representation
     
-    def from_dist(self, name, dist):
+    @classmethod
+    def from_dist(cls, name, dist, **kwargs):
         # TODO:: how to handle this
         # probebly need to pass categories as list and zip
         # categories to integers implied by dist
-        raise NotImplementedError(("custom distributions over categories "
-                                   "not supported yet"))
-        
+        if cls is CategoricalParameter:
+            # only not implemented if it is CategoricalParameter
+            # allow BooleanParameter to pass through correctly.
+            raise NotImplementedError(("custom distributions over categories "
+                                       "not supported yet"))
+        if not isinstance(dist.dist, sp.stats.rv_discrete):  # @UndefinedVariable
+            raise ValueError("dist should be instance of rv_discrete")
+        categories = kwargs.pop('categories')
+        multivalue = kwargs.pop('multivalue', False)
+        self = super(CategoricalParameter, cls).from_dist(name, dist, **kwargs)
+        cats = [create_category(cat) for cat in categories]
+
+        self._categories = NamedObjectMap(Category)
+
+        self.categories = cats
+        self.resolution = [i for i in range(len(self.categories))]
+        self.multivalue = multivalue
+        return self
 
 
 class BooleanParameter(CategoricalParameter):
@@ -446,7 +462,7 @@ class BooleanParameter(CategoricalParameter):
     def __init__(self, name, default=None, variable_name=None,
                  pff=False):
         super(BooleanParameter, self).__init__(
-            name, categories=[True, False], default=default,
+            name, categories=[False, True], default=default,
             variable_name=variable_name, pff=pff)
 
     @classmethod
@@ -460,10 +476,11 @@ class BooleanParameter(CategoricalParameter):
         if dist.ppf(1.0) != 1:
             raise ValueError("dist should have maximum value of 1")
 
-        result = super(IntegerParameter, cls).from_dist(name, dist, **kwargs)
-        cats = [create_category(cat) for cat in [False, True]]
-        result._categories = NamedObjectMap(Category)
-        result.categories = cats
+        result = super().from_dist(name=name, dist=dist,
+                                   categories=[False, True], **kwargs)
+        # cats = [create_category(cat) for cat in [False, True]]
+        # result._categories = NamedObjectMap(Category)
+        # result.categories = cats
         return result
 
 #     def __repr__(self, *args, **kwargs):
