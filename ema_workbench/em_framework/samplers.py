@@ -175,8 +175,7 @@ class UniformLHSSampler(LHSSampler):
         for param in parameters:
             lower_bound = param.lower_bound
             upper_bound = param.upper_bound
-            
-            if isinstance(param.dist, stats.rv_continuous):
+            if isinstance(param.dist.dist, stats.rv_continuous):
                 dist = stats.uniform(lower_bound, upper_bound-lower_bound)
             else:
                 dist = stats.randint(lower_bound, upper_bound+1)
