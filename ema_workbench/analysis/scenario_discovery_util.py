@@ -348,7 +348,8 @@ def plot_pair_wise_scatter(x, y, boxlim, box_init, restricted_dims):
     for column in categorical_columns:
 
         # reorder categorical data so we
-        # can capture them in a single column
+        # can capture the categories that are part of the box within a 
+        # single rectangular patch
         categories_inbox = boxlim.at[0, column]
         categories_all = box_init.at[0, column]
         missing = categories_all - categories_inbox
@@ -413,7 +414,7 @@ def plot_pair_wise_scatter(x, y, boxlim, box_init, restricted_dims):
         if xlabel in cats:
             labels = []
             locs = []
-            mapping = categorical_mappings[ylabel]
+            mapping = categorical_mappings[xlabel]
             for i in range(-1, len(mapping) + 1):
                 locs.append(i)
                 try:

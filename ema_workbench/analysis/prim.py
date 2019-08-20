@@ -30,8 +30,7 @@ except ImportError:
     warnings.warn(("altair based interactive "
                    "inspection not available"), ImportWarning)
 
-from ..util import (EMAError, temporary_filter, INFO, get_module_logger,
-                    ema_logging)
+from ..util import (EMAError, temporary_filter, INFO, get_module_logger)
 from . import scenario_discovery_util as sdutil
 from .prim_util import (PrimException, CurEntry, PRIMObjectiveFunctions,
                         NotSeen, is_pareto_efficient,
@@ -447,6 +446,10 @@ class PrimBox(object):
                                table_formatter=table_formatter)
 
     def inspect_tradeoff(self):
+        # TODO::
+        # make legend with res_dim color code a selector as well?
+        # https://medium.com/dataexplorations/focus-generating-an-interactive-legend-in-altair-9a92b5714c55
+        
         boxes = []
         nominal_vars = []
         quantitative_dims = set(self.prim.x_float_colums.tolist() +
@@ -477,9 +480,13 @@ class PrimBox(object):
             # handle nominal
             for dim in nominal_res_dims:
                 # TODO:: qp values
-                items = df[nominal_res_dims].loc[0, :].values[0]
+                items = df[dim].values[0]
                 for j, item in enumerate(items):
-                    entry = dict(name=dim, n_items=len(items) + 1,
+#                     we need to have tick labeling to be dynamic?
+#                     adding it to the dict wont work, creates horrible figure
+#                     unless we can force a selection?
+                    name = f"{dim}, {qp.loc[qp.index[0], dim]: .2g}"
+                    entry = dict(name=name, n_items=len(items) + 1,
                                  item=item, id=int(i),
                                  x=j / len(items))
                     nominal_vars.append(entry)
@@ -553,7 +560,7 @@ class PrimBox(object):
 
         texts2 = base.mark_text(
             baseline='top', dy=5, align='right').encode(
-            text=alt.Text('text:O'), x='x_upper:Q').transform_calculate(
+            text=alt.Text('text:O'),x='x_upper:Q').transform_calculate(
             text=(
                 'datum.qp_upper>0?'
                 'format(datum.x2, ".2")+" ("+format(datum.qp_upper, ".1")+")" :'
@@ -565,6 +572,10 @@ class PrimBox(object):
             x2='end:Q',
         )
 
+        # TODO:: for qp can we do something with the y encoding here and
+        # connecting this to a selection?
+        # seems tricky, no clear way to control the actual labels
+        # or can we use the text channel identical to the above?
         nominal = alt.Chart(nominal_vars).mark_point().encode(
             x='x:Q',
             y='name:N',
@@ -754,7 +765,7 @@ class PrimBox(object):
         '''
         return sdutil.plot_tradeoff(self.peeling_trajectory, cmap=cmap)
 
-    def show_pairs_scatter(self, i=None, only_current=False):
+    def show_pairs_scatter(self, i=None, dims=None):
         ''' Make a pair wise scatter plot of all the restricted
         dimensions with color denoting whether a given point is of
         interest or not and the boxlims superimposed on top.
@@ -762,6 +773,8 @@ class PrimBox(object):
         Parameters
         ----------
         i : int, optional
+        dims : list of str, optional
+               dimensions to show, defaults to all restricted dimensions
 
         Returns
         -------
@@ -771,19 +784,15 @@ class PrimBox(object):
         if i is None:
             i = self._cur_box
 
-        resdim = sdutil._determine_restricted_dims(self.box_lims[i],
+        if dims is None:
+            dims = sdutil._determine_restricted_dims(self.box_lims[i],
                                                    self.prim.box_init)
-        if only_current:
-            return sdutil.plot_pair_wise_scatter(self.prim.x.loc[self.yi_initial],
-                                                 self.prim.y[self.yi_initial],
-                                                 self.box_lims[i],
-                                                 self.prim.box_init,
-                                                 resdim)
-        else:
-            return sdutil.plot_pair_wise_scatter(self.prim.x, self.prim.y,
-                                                 self.box_lims[i],
-                                                 self.prim.box_init,
-                                                 resdim)
+
+        return sdutil.plot_pair_wise_scatter(self.prim.x.iloc[self.yi_initial,:],
+                                             self.prim.y[self.yi_initial],
+                                             self.box_lims[i],
+                                             self.prim.box_init,
+                                             dims)
 
     def write_ppt_to_stdout(self):
         '''write the peeling and pasting trajectory to stdout'''

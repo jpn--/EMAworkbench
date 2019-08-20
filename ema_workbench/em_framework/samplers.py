@@ -227,8 +227,6 @@ class FactorialLHSSampler(LHSSampler):
             else:
                 well_characterized_parameters.append(parameter)
         
-        TODO
-        
         
         sampled_parameters = self.generate_samples(parameters, nr_samples)
         designs = zip(*[sampled_parameters[u.name] for u in parameters])

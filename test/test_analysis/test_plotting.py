@@ -15,6 +15,7 @@ from ema_workbench.analysis.plotting_util import (make_continuous_grouping_speci
                                                   filter_scalar_outcomes, group_results,
                                                   Density, PlotType)
 from test import utilities
+from ema_workbench.util.ema_exceptions import EMAError
 
 
 # don't run these tests using nosetest
@@ -225,6 +226,9 @@ def test_lines():
     plt.close('all')
 
 def test_envelopes():
+    # TODO:: should iterate over the density enum to automatically
+    # test all defined densities
+    
     experiments, outcomes = utilities.load_eng_trans_data()
     
     #testing titles
@@ -269,6 +273,13 @@ def test_envelopes():
     envelopes(experiments, outcomes, density=Density.HIST)
     envelopes(experiments, outcomes, density=Density.BOXPLOT)
     envelopes(experiments, outcomes, density=Density.VIOLIN)
+    envelopes(experiments, outcomes, density=Density.BOXENPLOT)
+
+    try:
+        envelopes(experiments, outcomes, density='undefined')
+    except EMAError:
+        pass
+    
     set_fig_to_bw(envelopes(experiments, outcomes, density=Density.VIOLIN)[0])
 
     plt.draw()
@@ -292,6 +303,9 @@ def test_envelopes():
     envelopes(experiments, outcomes, 
               group_by='policy',
               density=Density.KDE)
+    envelopes(experiments, outcomes, 
+              group_by='policy',
+              density=Density.BOXENPLOT)
 
     plt.draw()
     plt.close('all')
@@ -327,6 +341,10 @@ def test_envelopes():
     envelopes(experiments, outcomes, 
               group_by='policy',
               density=Density.HIST,
+              log=True)
+    envelopes(experiments, outcomes, 
+              group_by='policy',
+              density=Density.BOXENPLOT,
               log=True)
 
     plt.draw()
