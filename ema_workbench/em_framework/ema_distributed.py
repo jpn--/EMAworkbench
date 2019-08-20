@@ -175,7 +175,10 @@ class DistributedEvaluator(BaseEvaluator):
 
 		# Experiments are sent to workers in batches, as the task-scheduler overhead is high for quick-running models.
 		batches = grouper(experiments.values(), self.batch_size)
-		outcomes = self.client.map(run_experiments_on_worker, batches)
+
+		# Dask no longer supports mapping over Iterators or Queues.
+		# Using a normal for loop and Client.submit
+		outcomes = [self.client.submit(run_experiments_on_worker, b) for b in batches]
 
 		_logger.debug("receiving experiments asynchronously")
 
