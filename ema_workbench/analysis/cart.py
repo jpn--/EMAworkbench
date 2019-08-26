@@ -17,7 +17,7 @@ import pandas as pd
 
 import six
 from sklearn import tree
-from sklearn.externals.six import StringIO
+from io import StringIO
 
 from . import scenario_discovery_util as sdutil
 from ..util import get_module_logger
