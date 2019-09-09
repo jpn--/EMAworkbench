@@ -1,6 +1,8 @@
+{% set data = load_setup_py_data() %}
+
 package:
   name: ema_workbench
-  version: "2.1.CS1"
+  version: {{ data.get('version') }}
 
 source:
   path: ../
@@ -22,12 +24,10 @@ requirements:
     - ipython
     - ipyparallel
     - jupyter
-    - mpld3
     - scikit-learn
     - seaborn
     - matplotlib
     - pyzmq
-    - mpldatacursor
     - platypus-opt
     - altair
     - pydot

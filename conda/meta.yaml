@@ -22,7 +22,6 @@ requirements:
     - ipython
     - ipyparallel
     - jupyter
-    - mpld3
     - scikit-learn
     - seaborn
     - matplotlib
