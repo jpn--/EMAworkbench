@@ -55,9 +55,9 @@ def run_experiment_on_worker(experiment):
 	try:
 		model.run_model(scenario, policy)
 	except CaseError as e:
-		ema_logging.warning(str(e))
+		_logger.warning(str(e))
 	except Exception as e:
-		ema_logging.exception(str(e))
+		_logger.exception(str(e))
 		try:
 			model.cleanup()
 		except Exception:

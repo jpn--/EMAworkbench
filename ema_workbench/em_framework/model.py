@@ -93,7 +93,8 @@ class AbstractModel(NamedObject):
 
         if not self.name.isalnum():
             raise EMAError(("name of model should only contain "
-                            "alpha numerical characters"))
+                            "alpha numerical characters, cannot be "
+                            +self.name))
 
         self._output_variables = None
         self._outcomes_output = {}
