@@ -173,7 +173,7 @@ class BaseEvaluator(object):
                             outcome_union=False,
                             uncertainty_sampling=Samplers.LHS,
                             levers_sampling=Samplers.LHS, callback=None,
-                            zip_over=None):
+                            zip_over=None, log_level=20):
         '''convenience method for performing experiments.
 
         is forwarded to :func:perform_experiments, with evaluator and
@@ -190,7 +190,8 @@ class BaseEvaluator(object):
                                    uncertainty_sampling=uncertainty_sampling,
                                    levers_sampling=levers_sampling,
                                    callback=callback,
-                                   zip_over=zip_over)
+                                   zip_over=zip_over,
+                                   log_level=log_level)
 
     def optimize(self, algorithm=EpsNSGAII, nfe=10000, searchover='levers',
                  reference=None, constraints=None, convergence_freq=1000,
@@ -389,7 +390,7 @@ def perform_experiments(models, scenarios=0, policies=0, evaluator=None,
                         uncertainty_sampling=Samplers.LHS,
                         levers_sampling=Samplers.LHS, callback=None,
                         return_callback=False,
-                        zip_over=None):
+                        zip_over=None, log_level=20):
     '''sample uncertainties and levers, and perform the resulting experiments
     on each of the models
 
@@ -490,30 +491,30 @@ def perform_experiments(models, scenarios=0, policies=0, evaluator=None,
         zip_over = set(zip_over)
         if zip_over == {'policies', 'scenarios'}:
             nr_of_exp = n_models * max(n_policies, n_scenarios)
-            _logger.info(('performing {} scenarios/policies * {} model(s) = '
+            _logger.log(log_level,('performing {} scenarios/policies * {} model(s) = '
                           '{} experiments').format(max(n_policies, n_scenarios),
                                                    n_models, nr_of_exp))
 
         elif zip_over == {'policies', 'models'}:
             nr_of_exp = max(n_models, n_policies) * n_scenarios
-            _logger.info(('performing {} scenarios * {} policies/models = '
+            _logger.log(log_level,('performing {} scenarios * {} policies/models = '
                           '{} experiments').format(n_scenarios,
                                                    max(n_models, n_policies), nr_of_exp))
 
         elif zip_over == {'scenarios', 'models'}:
             nr_of_exp = max(n_models, n_scenarios) * n_policies
-            _logger.info(('performing {} policies * {} scenarios/models = '
+            _logger.log(log_level,('performing {} policies * {} scenarios/models = '
                           '{} experiments').format(n_policies,
                                                    max(n_models, n_scenarios), nr_of_exp))
 
         elif zip_over == {'scenarios', 'models', 'policies'}:
             nr_of_exp = max(n_models, n_policies, n_scenarios)
-            _logger.info(('performing {} scenarios/policies/models = '
+            _logger.log(log_level,('performing {} scenarios/policies/models = '
                           '{} experiments').format(nr_of_exp, nr_of_exp))
 
     else:
         nr_of_exp = n_models * n_scenarios * n_policies
-        _logger.info(('performing {} scenarios * {} policies * {} model(s) = '
+        _logger.log(log_level,('performing {} scenarios * {} policies * {} model(s) = '
                       '{} experiments').format(n_scenarios, n_policies,
                                                n_models, nr_of_exp))
 
@@ -541,7 +542,7 @@ def perform_experiments(models, scenarios=0, policies=0, evaluator=None,
                         'completed. expected {}, got {}').format(nr_of_exp,
                                                                  callback.i))
 
-    _logger.info("experiments finished")
+    _logger.log(log_level,"experiments finished")
 
     if return_callback:
         return callback
