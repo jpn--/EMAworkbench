@@ -104,9 +104,17 @@ class Problem(PlatypusProblem):
         assert searchover in ('levers', 'uncertainties', 'robust')
 
         if searchover == 'levers':
-            assert not reference or isinstance(reference, Scenario)
+            try:
+                assert not reference or isinstance(reference, Scenario)
+            except AssertionError:
+                print("reference is", type(reference))
+                raise
         elif searchover == 'uncertainties':
-            assert not reference or isinstance(reference, Policy)
+            try:
+                assert not reference or isinstance(reference, Policy)
+            except AssertionError:
+                print("reference is", type(reference))
+                raise
         else:
             assert not reference
 
