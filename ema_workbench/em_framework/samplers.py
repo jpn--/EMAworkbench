@@ -684,7 +684,14 @@ def design_generator(designs, params, kind):
                 value = value.value
             else:
                 if isinstance(param, IntegerParameter):
-                    value = int(value)
+                    try:
+                        value = int(value)
+                    except ValueError:
+                        if isinstance(param, CategoricalParameter):
+                            # When value isn't an integer, it is generally the raw category value
+                            value = param.index_for_cat(value)
+                        else:
+                            raise
                 if isinstance(param, BooleanParameter):
                     value = bool(value)
                 if isinstance(param, CategoricalParameter):
