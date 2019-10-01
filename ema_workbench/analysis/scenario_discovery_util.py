@@ -310,8 +310,8 @@ def _calculate_quasip(x, y, box, Hbox, Tbox):
 
     p = Hj / Tj
 
-    Hbox = int(Hbox)
-    Tbox = int(Tbox)
+    Hbox = round(Hbox)
+    Tbox = round(Tbox)
 
     # force one sided
     qp = sp.stats.binom_test(
