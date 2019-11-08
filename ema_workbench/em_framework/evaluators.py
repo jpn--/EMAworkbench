@@ -202,7 +202,7 @@ class BaseEvaluator(object):
         arguments added in.
 
         '''
-        return optimize(self._msis, algorithm=algorithm, nfe=int(nfe),
+        return optimize(self._msis, algorithm=algorithm, nfe=nfe,
                         searchover=searchover, evaluator=self,
                         reference=reference, constraints=constraints,
                         convergence_freq=convergence_freq,

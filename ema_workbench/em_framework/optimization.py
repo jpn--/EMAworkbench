@@ -827,6 +827,26 @@ class CombinedMutator(CombinedVariator):
                Subset: mutate_categorical}
 
 
+class MaxEvaluationsOrManual(platypus.MaxEvaluations):
+    """Termination condition based on the maximum number of function evaluations.
+
+    Note that since we check the termination condition after each iteration, it
+    is possible for the algorithm to exceed the max NFE.
+
+    Parameters
+    ----------
+    nfe : int
+        The maximum number of function evaluations to execute.
+    """
+
+    def __init__(self, nfe):
+        super(MaxEvaluationsOrManual, self).__init__(nfe)
+        self.bail = False
+
+    def shouldTerminate(self, algorithm):
+        return self.bail or super(MaxEvaluationsOrManual, self).shouldTerminate(algorithm)
+
+
 def _optimize(problem, evaluator, algorithm, convergence, nfe,
               convergence_freq, logging_freq, **kwargs):
 
@@ -842,22 +862,36 @@ def _optimize(problem, evaluator, algorithm, convergence, nfe,
                           log_frequency=500, **kwargs)
     optimizer.mutator = mutator
 
+    if isinstance(nfe, int):
+        terminator = MaxEvaluationsOrManual(nfe)
+    else:
+        terminator = nfe
+
+    if isinstance(nfe, platypus.MaxEvaluations):
+        nfe = nfe.nfe
+
     convergence = Convergence(convergence, nfe,
                               convergence_freq=convergence_freq,
                               logging_freq=logging_freq)
     callback = functools.partial(convergence, optimizer)
     evaluator.callback = callback
 
+    end_message = "optimization completed, found {} solutions"
+
     with temporary_filter(name=[callbacks.__name__,
                                 evaluators.__name__], level=INFO):
-        optimizer.run(nfe)
+        try:
+            optimizer.run(terminator)
+        except KeyboardInterrupt:
+            end_message = "optimization terminated by user, found {} solutions"
+            if isinstance(terminator, MaxEvaluationsOrManual):
+                terminator.bail = True
 
     results = to_dataframe(optimizer, problem.parameter_names,
                            problem.outcome_names)
     convergence = convergence.to_dataframe()
 
-    message = "optimization completed, found {} solutions"
-    _logger.info(message.format(len(optimizer.algorithm.archive)))
+    _logger.info(end_message.format(len(optimizer.algorithm.archive)))
 
     if convergence.empty:
         return results
