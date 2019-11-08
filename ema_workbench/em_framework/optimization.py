@@ -40,7 +40,8 @@ try:
         DifferentialEvolution,
         UNDX,
         SPX,
-        UM)  # @UnresolvedImport
+        UM,
+        MaxEvaluations)  # @UnresolvedImport
     from platypus import Problem as PlatypusProblem
 
     import platypus
@@ -70,6 +71,12 @@ except ImportError:
 
     class EpsilonProgressContinuation(object):
         pass
+
+    class MaxEvaluations(object):
+        def __init__(self, *args, **kwargs):
+            pass
+        def shouldTerminate(self, algorithm):
+            pass
 
     EpsNSGAII = None
     platypus = None
@@ -827,7 +834,7 @@ class CombinedMutator(CombinedVariator):
                Subset: mutate_categorical}
 
 
-class MaxEvaluationsOrManual(platypus.MaxEvaluations):
+class MaxEvaluationsOrManual(MaxEvaluations):
     """Termination condition based on the maximum number of function evaluations.
 
     Note that since we check the termination condition after each iteration, it
@@ -867,7 +874,7 @@ def _optimize(problem, evaluator, algorithm, convergence, nfe,
     else:
         terminator = nfe
 
-    if isinstance(nfe, platypus.MaxEvaluations):
+    if isinstance(nfe, MaxEvaluations):
         nfe = nfe.nfe
 
     convergence = Convergence(convergence, nfe,
