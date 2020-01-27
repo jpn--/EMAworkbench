@@ -13,17 +13,12 @@ requirements:
     - setuptools
   run:
     - python
-    - setuptools_scm
-    - pyscaffold
-    - sphinx
     - ipykernel
-    - nbsphinx
     - numpy
-    - scipy
-    - pandas
+    - scipy >=1.2
+    - pandas >=0.24
     - ipython
     - ipyparallel
-    - jupyter
     - scikit-learn
     - seaborn
     - matplotlib

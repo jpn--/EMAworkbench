@@ -1,16 +1,12 @@
-pyscaffold==2.5.7
-sphinx>=1.4
 ipykernel
-nbsphinx
 future
 futures
 numpy
-scipy==1.2.*
+scipy>=1.2.*
 pandas>=0.24.*
 ipython
 ipyparallel
 JPype1
-jupyter
 scikit-learn
 seaborn
 matplotlib
