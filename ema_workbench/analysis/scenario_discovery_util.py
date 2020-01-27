@@ -1,9 +1,6 @@
 '''
 Scenario discovery utilities used by both :mod:`cart` and :mod:`prim`
 '''
-from __future__ import (absolute_import, print_function, division,
-                        unicode_literals)
-
 import abc
 import enum
 import itertools
@@ -90,9 +87,10 @@ def _make_box(x):
 
     '''
 
+    # x.select_dtypes(np.number)
+
     def limits(x):
-        if (pd.api.types.is_integer_dtype(x.dtype)) or\
-           (pd.api.types.is_float_dtype(x.dtype)):  # @UndefinedVariable
+        if (pd.api.types.is_numeric_dtype(x.dtype)):  # @UndefinedVariable
             return pd.Series([x.min(), x.max()])
         else:
             return pd.Series([set(x), set(x)])
@@ -314,8 +312,7 @@ def _calculate_quasip(x, y, box, Hbox, Tbox):
     Tbox = round(Tbox)
 
     # force one sided
-    qp = sp.stats.binom_test(
-        Hbox, Tbox, p, alternative='greater')  # @UndefinedVariable
+    qp = sp.stats.binom_test(Hbox, Tbox, p, alternative='greater')  # @UndefinedVariable
 
     return qp
 

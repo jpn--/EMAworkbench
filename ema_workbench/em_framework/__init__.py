@@ -12,7 +12,7 @@ __all__ = ["ema_parallel", "parameters"
            "perform_experiments", 'optimize', "IpyparallelEvaluator",
            "MultiprocessingEvaluator", "SequentialEvaluator", "DistributedEvaluator",
            'ReplicatorModel', "EpsilonProgress", "HyperVolume",
-           "Convergence", "ArchiveLogger", "ArrayOutcome"]
+           "Convergence", "ArchiveLogger", "ArrayOutcome", "Samplers"]
 
 from .outcomes import (ScalarOutcome, TimeSeriesOutcome, Constraint,
                        ArrayOutcome)
@@ -28,7 +28,8 @@ from .samplers import (MonteCarloSampler, FullFactorialSampler, LHSSampler,
 from .salib_samplers import (SobolSampler, MorrisSampler, FASTSampler,
                              get_SALib_problem)
 from .evaluators import (perform_experiments, optimize,
-                         MultiprocessingEvaluator, SequentialEvaluator)
+                         MultiprocessingEvaluator, SequentialEvaluator,
+                         Samplers)
 from .optimization import (Convergence, HyperVolume, EpsilonProgress,
                            ArchiveLogger)
 try:
