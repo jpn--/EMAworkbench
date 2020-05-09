@@ -1,4 +1,5 @@
 * add progress bar which is context aware (notebook, command line)
+* add altair based analysis to scenario discovery
 * review parallelization code, too much unnecessary copying seems
   to be going on at the moment
 * add documentation on how to develop connectors
@@ -19,13 +20,8 @@
   alternatively, move epsilon into outcome, analogous to expected_range.
   probably a better approach. Contains all relevant information within 
   outcome class and avoids having to carefully maintain order. 
-* If we add other distributions, can we create a hybrid sampler were we sample
-  the deeply uncertain factors first, and then evaluate each deeply uncertain
-  experiment for n experiments over the well characterized uncertainties?
-* redo sampler api
-	* have a sampler_kwargs argument
-	* pff move to list for sampler so you can specify which samplers you
-	  want tocombine
-	* add new kwarg to perform_experiments to control how policies and
-	  scenarios are combined. Options are {sample_jointly, factorial (Default),
-	  zipover}. Any others?
+* what about a callable on parameters that can be called with the sampled
+  value. Allows you to easily generate a time series given one parameter
+  A further extension would be to have uncertainties composed of uncertainties
+  and then the callable would take multiple arguments (this is sort of how
+  lookup uncertainties work, but we might generalize this).
