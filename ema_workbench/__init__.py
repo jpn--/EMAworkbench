@@ -15,4 +15,4 @@ from .util import (save_results, load_results, ema_logging, EMAError,
 # from . import analysis
 
 
-__version__ = '2.1.508'
+__version__ = '2.1.509'
