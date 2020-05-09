@@ -181,6 +181,8 @@ class ScalarOutcome(AbstractOutcome):
 
     def process(self, values):
         values = super(ScalarOutcome, self).process(values)
+        if values is None:
+            return float('nan')
         if not isinstance(values, numbers.Number):
             raise EMAError(
                 f"outcome {self.name} should be a scalar, but is {type(values)}: {values}".format())
